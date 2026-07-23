@@ -108,18 +108,13 @@ Depending on the NCT ID, the app may return:
 
 ## Screenshots
 
-Add deployed-app screenshots here when you have them:
-
-```md
-## Screenshots
+Preview renders are included below so the README shows the intended product shape even before deployment captures are available.
 
 ![Homepage](./screenshots/homepage.png)
-![Loading state](./screenshots/loading.png)
 ![Investigation results](./screenshots/results.png)
 ![Mobile view](./screenshots/mobile.png)
-```
 
-Suggested captures:
+Suggested captures for later:
 
 - homepage before search
 - loading or investigating state
@@ -149,4 +144,3 @@ This app is designed for Vercel deployment.
 - The app is designed for one NCT ID at a time.
 - The output is evidence-ranked, not causal proof.
 - If the publication trail is thin, the app stays conservative rather than overclaiming.
-
