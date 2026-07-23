@@ -135,7 +135,10 @@ export default function Home() {
         | { error?: string };
 
       if (!response.ok || "error" in payload) {
-        throw new Error(payload.error ?? "The investigation service could not complete this request.");
+        const message = "error" in payload && payload.error
+          ? payload.error
+          : "The investigation service could not complete this request.";
+        throw new Error(message);
       }
 
       setState({ status: "success", data: payload });
