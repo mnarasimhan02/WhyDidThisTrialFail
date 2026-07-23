@@ -133,15 +133,16 @@ export default function Home() {
       const payload = (await response.json()) as
         | InvestigationResponse
         | { error?: string };
+      const isErrorPayload = "error" in payload && typeof payload.error === "string";
 
-      if (!response.ok || "error" in payload) {
-        const message = "error" in payload && payload.error
+      if (!response.ok || isErrorPayload) {
+        const message = isErrorPayload && payload.error
           ? payload.error
           : "The investigation service could not complete this request.";
         throw new Error(message);
       }
 
-      setState({ status: "success", data: payload });
+      setState({ status: "success", data: payload as InvestigationResponse });
     } catch (error) {
       const message =
         error instanceof Error
