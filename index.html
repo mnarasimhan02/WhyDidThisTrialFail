@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WhyDidThisTrialFail</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="orb orb-a"></div>
+    <div class="orb orb-b"></div>
+    <main class="shell">
+      <section class="hero">
+        <div class="eyebrow">Public-source trial investigation</div>
+        <h1>WhyDidThisTrialFail</h1>
+        <p class="lede">Paste an NCT ID and get a source-backed investigation of what likely went wrong, what is supported by evidence, and what remains uncertain.</p>
+        <div class="search-card">
+          <label for="nctInput">NCT ID</label>
+          <div class="search-row">
+            <input id="nctInput" type="text" value="NCT01234567" placeholder="NCT01234567" autocomplete="off" />
+            <button id="investigateBtn">Investigate</button>
+          </div>
+          <p class="hint">Try <span>NCT01234567</span> or <span>NCT03163767</span>.</p>
+        </div>
+      </section>
+
+      <section class="status-panel">
+        <div>
+          <div class="label">Investigation status</div>
+          <div id="statusText" class="status">Ready</div>
+        </div>
+        <div>
+          <div class="label">Evidence discipline</div>
+          <div class="status subtle">Claims are labeled fact, inference, or hypothesis</div>
+        </div>
+      </section>
+
+      <section id="results" class="results hidden">
+        <div class="summary-card">
+          <div class="summary-top">
+            <div>
+              <div class="label">Bottom line</div>
+              <h2 id="trialTitle">Trial title</h2>
+            </div>
+            <div class="badge-group">
+              <span id="failureBadge" class="badge">Failure likelihood</span>
+              <span id="phaseBadge" class="badge muted">Phase</span>
+            </div>
+          </div>
+          <p id="bottomLine" class="summary-text"></p>
+        </div>
+
+        <div class="grid">
+          <article class="panel">
+            <div class="panel-head"><h3>Trial overview</h3></div>
+            <dl id="overviewList" class="keyvals"></dl>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head"><h3>Timeline</h3></div>
+            <div id="timelineList" class="timeline"></div>
+          </article>
+        </div>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h3>Failure hypotheses</h3>
+            <p>Ranked by confidence. Each claim includes its evidence level.</p>
+          </div>
+          <div id="hypotheses" class="hypotheses"></div>
+        </article>
+
+        <div class="grid">
+          <article class="panel">
+            <div class="panel-head"><h3>Related trials</h3></div>
+            <div id="relatedTrials" class="related"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head"><h3>What is uncertain</h3></div>
+            <ul id="limitations" class="list"></ul>
+          </article>
+        </div>
+
+        <article class="panel">
+          <div class="panel-head"><h3>Evidence log</h3></div>
+          <div id="evidenceLog" class="evidence"></div>
+        </article>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
