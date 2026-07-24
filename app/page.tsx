@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 type InvestigationResponse = {
   nctId: string;
@@ -87,7 +87,28 @@ type ApiState =
   | { status: "error"; message: string }
   | { status: "success"; data: InvestigationResponse };
 
-const starterExamples = ["NCT01234567", "NCT03163767", "NCT04280705"];
+const EXAMPLES = ["NCT01234567", "NCT03163767", "NCT04280705"];
+
+const TIERS = {
+  fact: {
+    label: "FACT",
+    color: "#1F5C4B",
+    bg: "#DCE8E1",
+    desc: "Directly stated in a primary source.",
+  },
+  inference: {
+    label: "INFERENCE",
+    color: "#8A6416",
+    bg: "#EDE3C8",
+    desc: "A reasonable read of two or more facts.",
+  },
+  hypothesis: {
+    label: "HYPOTHESIS",
+    color: "#8B3A22",
+    bg: "#EDDCD1",
+    desc: "Plausible, but not confirmed by the record.",
+  },
+} as const;
 
 function confidenceClass(value: string) {
   if (value === "high") return "pill pill-high";
@@ -107,42 +128,37 @@ function formatDate(value?: string) {
   }).format(date);
 }
 
-function metricCard(value: string | number, label: string) {
-  return (
-    <div className="metric">
-      <strong>{value}</strong>
-      <span>{label}</span>
-    </div>
-  );
-}
-
-function sourceCard(name: string, detail: string, url: string) {
-  return (
-    <a className="source-card" href={url} target="_blank" rel="noreferrer">
-      <span className="source-name">{name}</span>
-      <p>{detail}</p>
-      <span className="source-link">Open source</span>
-    </a>
-  );
+function tierStyle(key: keyof typeof TIERS, index: number) {
+  const tier = TIERS[key];
+  return {
+    color: tier.color,
+    background: tier.bg,
+    transform: index === 1 ? "rotate(1.5deg)" : "rotate(-2deg)",
+  };
 }
 
 export default function Home() {
-  const [nctId, setNctId] = useState("NCT01234567");
-  const [state, setState] = useState<ApiState>({ status: "idle" });
+  const [nctId, setNctId] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [error, setError] = useState<string>("");
+  const [shake, setShake] = useState(false);
+  const [data, setData] = useState<InvestigationResponse | null>(null);
+  const resultRef = useRef<HTMLDivElement | null>(null);
 
-  const exampleLabel = useMemo(() => starterExamples.join(" · "), []);
+  const exampleLabel = useMemo(() => EXAMPLES.join(" · "), []);
 
-  async function investigate() {
+  async function runInvestigation() {
     const trimmed = nctId.trim().toUpperCase();
     if (!/^NCT\d{8}$/.test(trimmed)) {
-      setState({
-        status: "error",
-        message: "Enter a valid NCT ID, for example NCT01234567.",
-      });
+      setShake(true);
+      setError("Enter a valid NCT ID like NCT01234567.");
+      setStatus("error");
+      setTimeout(() => setShake(false), 420);
       return;
     }
 
-    setState({ status: "loading" });
+    setError("");
+    setStatus("loading");
 
     try {
       const response = await fetch(`/api/investigate?nctId=${encodeURIComponent(trimmed)}`);
@@ -155,405 +171,294 @@ export default function Home() {
         );
       }
 
-      setState({ status: "success", data: payload as InvestigationResponse });
-    } catch (error) {
+      const resolved = payload as InvestigationResponse;
+      setData(resolved);
+      setStatus("done");
+      window.setTimeout(() => {
+        resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
+    } catch (caught) {
       const message =
-        error instanceof Error
-          ? error.message
-          : "Something unexpected happened while investigating the trial.";
-      setState({ status: "error", message });
+        caught instanceof Error ? caught.message : "Something unexpected happened while investigating the trial.";
+      setError(message);
+      setStatus("error");
     }
   }
 
   return (
-    <main className="app-shell">
-      <div className="ambient ambient-left" />
-      <div className="ambient ambient-right" />
+    <div className="wdtf-root">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Special+Elite&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+      `}</style>
 
-      <header className="topbar">
-        <div className="topbar-brand">
-          <span className="brand-mark">WTF</span>
-          <div>
-            <strong>WhyDidThisTrialFail</strong>
-            <p>Public-source trial intelligence</p>
-          </div>
-        </div>
-        <div className="topbar-meta">One NCT ID. One investigation. No uploads.</div>
-      </header>
-
-      <section className="hero">
-        <div className="hero-copy">
-          <div className="eyebrow-row">
-            <span className="eyebrow">Public-source trial intelligence</span>
-            <span className="status-chip">No uploads required</span>
-          </div>
-
-          <h1>WhyDidThisTrialFail</h1>
-          <p className="lede">
-            Paste one NCT ID and get a source-backed investigation of the public
-            record, the most plausible failure hypotheses, and the evidence behind
-            each one.
-          </p>
-          <p className="sublede">
-            Example IDs to try: <span>{exampleLabel}</span>
-          </p>
-
-          <div className="hero-metrics">
-            {metricCard("1", "NCT ID is enough")}
-            {metricCard("3-step", "agent workflow")}
-            {metricCard("Public", "source-first reasoning")}
-          </div>
-        </div>
-
-        <aside className="hero-panel">
-          <div className="hero-panel-top">
+      <div className="page-wrap">
+        <header className="masthead">
+          <div className="brand">
+            <span className="brand-mark">WTF</span>
             <div>
-              <span className="panel-kicker">Start investigation</span>
-              <h2>Enter one trial ID</h2>
+              <div className="brand-title">WhyDidThisTrialFail</div>
+              <div className="brand-subtitle">Public-source trial investigation</div>
             </div>
-            <span className={`badge ${state.status === "loading" ? "badge-warm" : "badge-cool"}`}>
-              {state.status === "loading" ? "Investigating" : "Ready"}
-            </span>
           </div>
+          <div className="masthead-copy">One NCT ID. No uploads. Source-backed reasoning.</div>
+        </header>
 
-          <label className="field-label" htmlFor="nctId">
-            NCT ID
-          </label>
-          <div className="input-row">
-            <input
-              id="nctId"
-              value={nctId}
-              onChange={(event) => setNctId(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  investigate();
-                }
-              }}
-              placeholder="NCT01234567"
-              autoComplete="off"
-              spellCheck={false}
-            />
-            <button type="button" onClick={investigate} disabled={state.status === "loading"}>
-              {state.status === "loading" ? "Investigating..." : "Investigate"}
-            </button>
-          </div>
-          <p className="fineprint">
-            The app checks ClinicalTrials.gov, PubMed, and registry-derived trial context automatically.
-          </p>
-        </aside>
-      </section>
-
-      <section className="status-strip">
-        <div className="status-card">
-          <span className="card-label">Investigation status</span>
-          <strong className={state.status === "error" ? "status-error" : ""}>
-            {state.status === "idle" && "Ready"}
-            {state.status === "loading" && "Gathering public sources and ranking hypotheses..."}
-            {state.status === "error" && state.message}
-            {state.status === "success" && `Investigation complete for ${state.data.nctId}.`}
-          </strong>
+        <div className="tab mono">
+          PUBLIC-SOURCE TRIAL INVESTIGATION · NO UPLOADS REQUIRED
         </div>
-        <div className="status-card subtle">
-          <span className="card-label">Guardrail</span>
-          <strong>
-            Facts, derived facts, and hypotheses are labeled separately so the app does not overstate causality.
-          </strong>
-        </div>
-      </section>
 
-      {state.status === "success" ? (
-        <section className="results">
-          <article className="result-hero">
-            <div className="result-hero-copy">
-              <span className="card-label">Bottom line</span>
-              <h2>{state.data.overview.title}</h2>
-              <p>{state.data.bottomLine}</p>
+        <section className="folder grain hero-card">
+          <div className="hero-grid">
+            <div className="hero-copy">
+              <h1 className="stampfont">WhyDidThisTrialFail</h1>
+              <p className="lede">
+                Paste one NCT ID and get a source-backed investigation of the public
+                record: the most plausible failure hypotheses, and the evidence
+                behind each one.
+              </p>
+
+              <div className={`search-shell ${shake ? "shake" : ""}`}>
+                <div className="search-row">
+                  <input
+                    className="nct-input"
+                    placeholder="NCT01234567"
+                    value={nctId}
+                    onChange={(event) => setNctId(event.target.value.toUpperCase())}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        runInvestigation();
+                      }
+                    }}
+                    aria-label="NCT ID"
+                  />
+                  <button className="go-btn" onClick={runInvestigation} disabled={status === "loading"}>
+                    {status === "loading" ? "INVESTIGATING..." : "INVESTIGATE"}
+                  </button>
+                </div>
+
+                <div className="examples">
+                  <span className="mono examples-label">TRY:</span>
+                  {EXAMPLES.map((id) => (
+                    <button key={id} className="chip" onClick={() => setNctId(id)}>
+                      {id}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <p className="supporting">
+                Example IDs to try: <span>{exampleLabel}</span>
+              </p>
             </div>
 
-            <div className="result-badges">
-              <span className={`badge verdict-${state.data.verdict}`}>
-                Likelihood: {state.data.verdict}
-              </span>
-              <span className="badge badge-cool">{state.data.overview.phase}</span>
-              {state.data.sourceTimestamp ? (
-                <span className="badge badge-muted">
-                  Data current as of {formatDate(state.data.sourceTimestamp)}
-                </span>
-              ) : null}
-            </div>
-          </article>
+            <aside className="side-panel">
+              <div className="side-head">
+                <div>
+                  <div className="eyebrow">Start investigation</div>
+                  <h2>Enter one trial ID</h2>
+                </div>
+                <div className={`badge ${status === "loading" ? "badge-warm" : "badge-cool"}`}>
+                  {status === "loading" ? "Investigating" : "Ready"}
+                </div>
+              </div>
+              <p className="side-copy">
+                The app checks ClinicalTrials.gov, PubMed, and registry-derived trial
+                context automatically.
+              </p>
 
-          <div className="grid-two">
-            <article className="panel">
-              <div className="panel-header">
-                <div>
-                  <span className="card-label">Trial overview</span>
-                  <h3>NCT {state.data.nctId}</h3>
-                </div>
+              <div className="evidence-strip">
+                <div className="evidence-pill">ClinicalTrials.gov</div>
+                <div className="evidence-pill">PubMed</div>
+                <div className="evidence-pill">Registry context</div>
               </div>
-              <dl className="definition-grid">
-                <div>
-                  <dt>Status</dt>
-                  <dd>{state.data.overview.status}</dd>
-                </div>
-                <div>
-                  <dt>Condition</dt>
-                  <dd>{state.data.overview.condition.join(", ") || "Not reported"}</dd>
-                </div>
-                <div>
-                  <dt>Intervention</dt>
-                  <dd>{state.data.overview.intervention.join(", ") || "Not reported"}</dd>
-                </div>
-                <div>
-                  <dt>Sponsor</dt>
-                  <dd>{state.data.overview.sponsor}</dd>
-                </div>
-                <div>
-                  <dt>Target / pathway</dt>
-                  <dd>{state.data.overview.target}</dd>
-                </div>
-                <div>
-                  <dt>Primary objective</dt>
-                  <dd>{state.data.overview.primaryObjective}</dd>
-                </div>
-                <div>
-                  <dt>Start date</dt>
-                  <dd>{formatDate(state.data.overview.startDate)}</dd>
-                </div>
-                <div>
-                  <dt>Completion date</dt>
-                  <dd>{formatDate(state.data.overview.completionDate)}</dd>
-                </div>
-                <div>
-                  <dt>Locations</dt>
-                  <dd>{state.data.overview.locationsCount?.toLocaleString("en-US") ?? "Not reported"}</dd>
-                </div>
-              </dl>
-            </article>
 
-            <article className="panel">
-              <div className="panel-header">
-                <div>
-                  <span className="card-label">Timeline</span>
-                  <h3>Public lifecycle events</h3>
+              <div className="tier-legend">
+                <div className="mono legend-label">
+                  GUARDRAIL - every line is tagged, never blended
                 </div>
-              </div>
-              <div className="stack">
-                {state.data.timeline.map((item) => (
-                  <a className="stack-item timeline-item" href={item.url} target="_blank" rel="noreferrer" key={`${item.date}-${item.event}`}>
-                    <span className="meta">
-                      {formatDate(item.date)} · {item.source}
-                    </span>
-                    <strong>{item.event}</strong>
-                  </a>
-                ))}
-              </div>
-            </article>
-          </div>
-
-          <article className="panel panel-wide">
-            <div className="panel-header">
-              <div>
-                <span className="card-label">Failure hypotheses</span>
-                <h3>Ranked by evidence quality, not certainty</h3>
-              </div>
-            </div>
-            <div className="stack">
-              {state.data.hypotheses.map((hypothesis) => (
-                <section className="hypothesis-card" key={hypothesis.id}>
-                  <div className="hypothesis-top">
-                    <div>
-                      <span className="meta">{hypothesis.id}</span>
-                      <h4>{hypothesis.label}</h4>
+                <div className="tier-row">
+                  {Object.entries(TIERS).map(([key, tier], index) => (
+                    <div key={key} className="tier-item">
+                      <span className="stamp-badge stampfont" style={tierStyle(key as keyof typeof TIERS, index)}>
+                        {tier.label}
+                      </span>
+                      <span className="tier-desc">{tier.desc}</span>
                     </div>
-                    <span className={confidenceClass(hypothesis.confidence)}>
-                      {hypothesis.confidence} confidence
-                    </span>
+                  ))}
+                </div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section className="status-band">
+          <div className="status-card">
+            <div className="mono status-label">Investigation status</div>
+            <div className={`status-text ${status === "error" ? "status-error" : ""}`}>
+              {status === "idle" && "Ready"}
+              {status === "loading" && "Checking sources..."}
+              {status === "error" && error}
+              {status === "done" && `Complete for ${data?.nctId ?? nctId ?? "this trial"}.`}
+            </div>
+          </div>
+          <div className="status-card">
+            <div className="mono status-label">Guardrail</div>
+            <div className="status-text subtle">
+              The app labels facts, inferences, and hypotheses separately so it does
+              not overstate causality.
+            </div>
+          </div>
+        </section>
+
+        <section className="what-youll-get">
+          <div className="mono section-label">WHAT YOU'LL GET</div>
+          <div className="feature-grid">
+            {[
+              {
+                title: "Bottom line",
+                body: "A tight, one-paragraph read on the most likely reason the trial stopped or missed its endpoint.",
+              },
+              {
+                title: "Hypotheses",
+                body: "Every plausible explanation, ranked by confidence, each with the evidence for it and the strongest case against it.",
+              },
+              {
+                title: "Evidence",
+                body: "Direct links back to ClinicalTrials.gov records, PubMed abstracts, and other public registry context.",
+              },
+              {
+                title: "Guardrails",
+                body: "Fact, inference, and hypothesis are labeled separately, so you always know how much weight to put on a line.",
+              },
+            ].map((item) => (
+              <article className="feature-card" key={item.title}>
+                <div className="stampfont feature-title">{item.title}</div>
+                <p>{item.body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {status === "done" && data ? (
+          <section ref={resultRef} className="folder grain result-file">
+            <div className="result-top">
+              <div className="mono result-label">CASE FILE - {data.nctId}</div>
+              <div className="result-stamp stampfont">
+                SAMPLE OUTPUT · ILLUSTRATIVE, NOT LIVE DATA
+              </div>
+            </div>
+
+            <div className="result-summary">
+              <div className="stampfont result-heading">Bottom line</div>
+              <p>{data.bottomLine}</p>
+            </div>
+
+            <hr className="dotted-rule" />
+
+            <div className="result-columns">
+              <div className="result-panel">
+                <div className="stampfont result-heading">Trial overview</div>
+                <dl className="overview-grid">
+                  <div>
+                    <dt>Status</dt>
+                    <dd>{data.overview.status}</dd>
                   </div>
-                  <p className="hypothesis-statement">{hypothesis.statement}</p>
-                  <p className="hypothesis-why">{hypothesis.whyItMatters}</p>
+                  <div>
+                    <dt>Phase</dt>
+                    <dd>{data.overview.phase}</dd>
+                  </div>
+                  <div>
+                    <dt>Condition</dt>
+                    <dd>{data.overview.condition.join(", ") || "Not reported"}</dd>
+                  </div>
+                  <div>
+                    <dt>Intervention</dt>
+                    <dd>{data.overview.intervention.join(", ") || "Not reported"}</dd>
+                  </div>
+                  <div>
+                    <dt>Sponsor</dt>
+                    <dd>{data.overview.sponsor}</dd>
+                  </div>
+                  <div>
+                    <dt>Target / pathway</dt>
+                    <dd>{data.overview.target}</dd>
+                  </div>
+                  <div>
+                    <dt>Start date</dt>
+                    <dd>{formatDate(data.overview.startDate)}</dd>
+                  </div>
+                  <div>
+                    <dt>Completion date</dt>
+                    <dd>{formatDate(data.overview.completionDate)}</dd>
+                  </div>
+                </dl>
+              </div>
 
-                  {hypothesis.evidence.length > 0 ? (
-                    <div className="evidence-grid">
-                      {hypothesis.evidence.map((item, index) => (
-                        <a className="evidence-card" key={`${hypothesis.id}-e-${index}`} href={item.url} target="_blank" rel="noreferrer">
-                          <span className="meta">
-                            {item.sourceType} · {item.citation}
-                          </span>
-                          <strong>{item.claim}</strong>
-                          <span className="source-link">Open supporting source</span>
-                        </a>
-                      ))}
-                    </div>
-                  ) : null}
+              <div className="result-panel">
+                <div className="stampfont result-heading">Timeline</div>
+                <div className="timeline-list">
+                  {data.timeline.map((item) => (
+                    <a key={`${item.date}-${item.event}`} className="timeline-row" href={item.url} target="_blank" rel="noreferrer">
+                      <span className="timeline-date">
+                        {formatDate(item.date)} · {item.source}
+                      </span>
+                      <span>{item.event}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </div>
 
-                  {hypothesis.counterevidence.length > 0 ? (
-                    <div className="counter-block">
-                      <span className="meta">Counterevidence</span>
-                      <div className="evidence-grid">
-                        {hypothesis.counterevidence.map((item, index) => (
-                          <a className="evidence-card evidence-card-muted" key={`${hypothesis.id}-c-${index}`} href={item.url} target="_blank" rel="noreferrer">
-                            <span className="meta">{item.citation}</span>
-                            <strong>{item.claim}</strong>
-                            <span className="source-link">Open source</span>
-                          </a>
-                        ))}
+            <hr className="dotted-rule" />
+
+            <div className="stampfont result-heading">Hypotheses, ranked</div>
+            <div className="hypothesis-list">
+              {data.hypotheses.map((hypothesis, index) => {
+                const tierKey = hypothesis.confidence === "high" ? "fact" : hypothesis.confidence === "medium" ? "inference" : "hypothesis";
+                const tier = TIERS[tierKey];
+                return (
+                  <article key={hypothesis.id} className="hypothesis-row">
+                    <div className="hypothesis-head">
+                      <div className="hypothesis-meta">
+                        <span className="mono row-index">{String(index + 1).padStart(2, "0")}</span>
+                        <span className="row-title">{hypothesis.label}</span>
+                        <span className="mono tier-tag" style={{ color: tier.color, background: tier.bg }}>
+                          {tier.label}
+                        </span>
+                      </div>
+                      <div className="confidence-wrap">
+                        <div className="conf-track">
+                          <div className="conf-fill" style={{ width: `${hypothesis.confidence === "high" ? 78 : hypothesis.confidence === "medium" ? 46 : 24}%`, background: tier.color }} />
+                        </div>
+                        <span className="mono confidence-label">{hypothesis.confidence}</span>
                       </div>
                     </div>
-                  ) : null}
-                </section>
-              ))}
+
+                    <p className="evidence-line">
+                      <span className="mono evidence-label">EVIDENCE</span>
+                      {hypothesis.evidence[0]?.claim ?? hypothesis.statement}
+                    </p>
+                    <p className="counter-line">
+                      <span className="mono evidence-label">COUNTER</span>
+                      {hypothesis.counterevidence[0]?.claim ?? "No strong counterevidence surfaced in the public record."}
+                    </p>
+                  </article>
+                );
+              })}
             </div>
-          </article>
 
-          <div className="grid-two">
-            <article className="panel">
-              <div className="panel-header">
-                <div>
-                  <span className="card-label">Related trials</span>
-                  <h3>Comparator context</h3>
-                </div>
-              </div>
-              <div className="stack">
-                {state.data.relatedTrials.length > 0 ? (
-                  state.data.relatedTrials.map((trial) => (
-                    <a className="stack-item trial-card" key={trial.nctId} href={trial.url} target="_blank" rel="noreferrer">
-                      <span className="meta">{trial.nctId} · {trial.status}</span>
-                      <strong className="title">{trial.title}</strong>
-                      <p>{trial.relevance}</p>
-                    </a>
-                  ))
-                ) : (
-                  <div className="empty-card">No public similar trials were found.</div>
-                )}
-              </div>
-            </article>
+            <hr className="dotted-rule" />
 
-            <article className="panel">
-              <div className="panel-header">
-                <div>
-                  <span className="card-label">Public publications</span>
-                  <h3>Linked from PubMed</h3>
-                </div>
-              </div>
-              <div className="stack">
-                {state.data.publications.length > 0 ? (
-                  state.data.publications.map((publication) => (
-                    <a className="stack-item trial-card" key={publication.pmid} href={publication.url} target="_blank" rel="noreferrer">
-                      <span className="meta">
-                        {publication.year} · {publication.journal} · PMID {publication.pmid}
-                      </span>
-                      <strong className="title">{publication.title}</strong>
-                      {publication.abstract ? <p>{publication.abstract}</p> : null}
-                    </a>
-                  ))
-                ) : (
-                  <div className="empty-card">No PubMed record surfaced for this trial yet.</div>
-                )}
-              </div>
-            </article>
-          </div>
-
-          <div className="grid-two">
-            <article className="panel">
-              <div className="panel-header">
-                <div>
-                  <span className="card-label">Evidence model</span>
-                  <h3>How the app classifies claims</h3>
-                </div>
-              </div>
-              <div className="metrics">
-                {metricCard(state.data.evidenceModel.directFacts, "Direct facts")}
-                {metricCard(state.data.evidenceModel.derivedFacts, "Derived facts")}
-                {metricCard(state.data.evidenceModel.inferences, "Inferences")}
-                {metricCard(state.data.evidenceModel.unsupportedClaims, "Rejected claims")}
-              </div>
-            </article>
-
-            <article className="panel">
-              <div className="panel-header">
-                <div>
-                  <span className="card-label">3-step agent flow</span>
-                  <h3>Research, reasoning, judge</h3>
-                </div>
-              </div>
-              <div className="stack">
-                {state.data.workflow.map((step) => (
-                  <div className="stack-item workflow-card" key={step.name}>
-                    <span className="meta">{step.name}</span>
-                    <strong>{step.summary}</strong>
-                    <div className="signal-list">
-                      {step.signals.map((signal) => (
-                        <span key={signal} className="signal-pill">
-                          {signal}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </article>
-          </div>
-
-          <div className="grid-two">
-            <article className="panel">
-              <div className="panel-header">
-                <div>
-                  <span className="card-label">What is uncertain</span>
-                  <h3>The app stays explicit about limits</h3>
-                </div>
-              </div>
-              <ul className="bullet-list">
-                {state.data.limitations.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </article>
-
-            <article className="panel">
-              <div className="panel-header">
-                <div>
-                  <span className="card-label">Source map</span>
-                  <h3>Public sources checked automatically</h3>
-                </div>
-              </div>
-              <div className="source-grid">
-                {state.data.sources.map((source) => sourceCard(source.name, source.detail, source.url))}
-              </div>
-            </article>
-          </div>
-        </section>
-      ) : (
-        <section className="results placeholder">
-          <article className="panel panel-wide">
-            <div className="panel-header">
-              <div>
-                <span className="card-label">What you’ll get</span>
-                <h3>Clear, source-first trial intelligence</h3>
-              </div>
+            <div className="sources-footer mono">
+              SOURCES CHECKED - ClinicalTrials.gov study record · PubMed citation search · sponsor public filings.
+              This sample was generated to preview the format; a real investigation pulls current data for the ID you enter.
             </div>
-            <div className="placeholder-grid">
-              <div className="placeholder-card">
-                <strong>Bottom line</strong>
-                <p>A concise explanation of the most likely failure story.</p>
-              </div>
-              <div className="placeholder-card">
-                <strong>Hypotheses</strong>
-                <p>Ranked explanations with confidence and counterevidence.</p>
-              </div>
-              <div className="placeholder-card">
-                <strong>Evidence</strong>
-                <p>ClinicalTrials.gov, PubMed, and public context links.</p>
-              </div>
-              <div className="placeholder-card">
-                <strong>Guardrails</strong>
-                <p>Clear separation between fact, inference, and speculation.</p>
-              </div>
-            </div>
-          </article>
-        </section>
-      )}
-    </main>
+          </section>
+        ) : null}
+
+        <div className="footer-note mono">ONE ID IS ENOUGH · NO ACCOUNT, NO UPLOAD</div>
+      </div>
+    </div>
   );
 }
