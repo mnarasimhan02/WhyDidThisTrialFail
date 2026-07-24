@@ -137,6 +137,15 @@ function tierStyle(key: keyof typeof TIERS, index: number) {
   };
 }
 
+function metric(label: string, value: string | number) {
+  return (
+    <div className="metric metric-compact">
+      <span className="mono metric-label">{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
 export default function Home() {
   const [nctId, setNctId] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
@@ -345,13 +354,32 @@ export default function Home() {
             <div className="result-top">
               <div className="mono result-label">CASE FILE - {data.nctId}</div>
               <div className="result-stamp stampfont">
-                SAMPLE OUTPUT · ILLUSTRATIVE, NOT LIVE DATA
+                LIVE INVESTIGATION · SOURCE-BACKED OUTPUT
               </div>
             </div>
 
             <div className="result-summary">
               <div className="stampfont result-heading">Bottom line</div>
               <p>{data.bottomLine}</p>
+            </div>
+
+            <div className="result-rail">
+              <div className="rail-item">
+                <span className="mono rail-label">LIKELIHOOD</span>
+                <strong>{data.verdict}</strong>
+              </div>
+              <div className="rail-item">
+                <span className="mono rail-label">PHASE</span>
+                <strong>{data.overview.phase}</strong>
+              </div>
+              <div className="rail-item">
+                <span className="mono rail-label">SOURCE CURRENTNESS</span>
+                <strong>{data.sourceTimestamp ? formatDate(data.sourceTimestamp) : "Not reported"}</strong>
+              </div>
+              <div className="rail-item">
+                <span className="mono rail-label">SCOPE</span>
+                <strong>{data.overview.condition[0] ?? "Unspecified"}</strong>
+              </div>
             </div>
 
             <hr className="dotted-rule" />
@@ -410,6 +438,40 @@ export default function Home() {
               </div>
             </div>
 
+            <div className="result-columns result-columns-secondary">
+              <div className="result-panel">
+                <div className="stampfont result-heading">Evidence model</div>
+                <div className="evidence-model">
+                  <div>{metric("Direct facts", data.evidenceModel.directFacts)}</div>
+                  <div>{metric("Derived facts", data.evidenceModel.derivedFacts)}</div>
+                  <div>{metric("Inferences", data.evidenceModel.inferences)}</div>
+                  <div>{metric("Rejected claims", data.evidenceModel.unsupportedClaims)}</div>
+                </div>
+              </div>
+
+              <div className="result-panel">
+                <div className="stampfont result-heading">3-step agent flow</div>
+                <div className="workflow-list">
+                  {data.workflow.map((step) => (
+                    <div className="workflow-row" key={step.name}>
+                      <div className="workflow-top">
+                        <strong>{step.name}</strong>
+                        <span className="mono workflow-badge">DONE</span>
+                      </div>
+                      <p>{step.summary}</p>
+                      <div className="workflow-signals">
+                        {step.signals.map((signal) => (
+                          <span key={signal} className="workflow-signal">
+                            {signal}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             <hr className="dotted-rule" />
 
             <div className="stampfont result-heading">Hypotheses, ranked</div>
@@ -449,6 +511,69 @@ export default function Home() {
             </div>
 
             <hr className="dotted-rule" />
+
+            <div className="result-columns result-columns-secondary">
+              <div className="result-panel">
+                <div className="stampfont result-heading">Related trials</div>
+                <div className="stack-list">
+                  {data.relatedTrials.length > 0 ? (
+                    data.relatedTrials.map((trial) => (
+                      <a key={trial.nctId} className="compact-card" href={trial.url} target="_blank" rel="noreferrer">
+                        <span className="mono compact-label">{trial.nctId} · {trial.status}</span>
+                        <strong>{trial.title}</strong>
+                        <p>{trial.relevance}</p>
+                      </a>
+                    ))
+                  ) : (
+                    <div className="compact-card muted-card">No public similar trials were found.</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="result-panel">
+                <div className="stampfont result-heading">Public publications</div>
+                <div className="stack-list">
+                  {data.publications.length > 0 ? (
+                    data.publications.map((publication) => (
+                      <a key={publication.pmid} className="compact-card" href={publication.url} target="_blank" rel="noreferrer">
+                        <span className="mono compact-label">
+                          {publication.year} · {publication.journal} · PMID {publication.pmid}
+                        </span>
+                        <strong>{publication.title}</strong>
+                        {publication.abstract ? <p>{publication.abstract}</p> : null}
+                      </a>
+                    ))
+                  ) : (
+                    <div className="compact-card muted-card">No PubMed record surfaced for this trial yet.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <hr className="dotted-rule" />
+
+            <div className="result-columns result-columns-secondary">
+              <div className="result-panel">
+                <div className="stampfont result-heading">What is uncertain</div>
+                <ul className="bullet-list">
+                  {data.limitations.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="result-panel">
+                <div className="stampfont result-heading">Source map</div>
+                <div className="stack-list">
+                  {data.sources.map((source) => (
+                    <a key={source.name} className="compact-card" href={source.url} target="_blank" rel="noreferrer">
+                      <span className="mono compact-label">{source.name}</span>
+                      <strong>{source.detail}</strong>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </div>
 
             <div className="sources-footer mono">
               SOURCES CHECKED - ClinicalTrials.gov study record · PubMed citation search · sponsor public filings.

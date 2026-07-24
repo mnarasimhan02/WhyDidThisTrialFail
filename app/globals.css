@@ -447,6 +447,33 @@ h1.stampfont {
   line-height: 1.55;
 }
 
+.result-rail {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.rail-item {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.rail-label {
+  display: block;
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.rail-item strong {
+  display: block;
+  font-size: 1.04rem;
+  line-height: 1.35;
+}
+
 .result-file {
   margin-top: 40px;
   padding: 28px 28px 30px;
@@ -493,8 +520,114 @@ h1.stampfont {
   gap: 24px;
 }
 
+.result-columns-secondary {
+  margin-top: 4px;
+}
+
 .result-panel {
   min-width: 0;
+}
+
+.metric-compact {
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.36);
+}
+
+.metric-label {
+  display: block;
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.metric-compact strong {
+  font-size: 1rem;
+}
+
+.evidence-model {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.workflow-list,
+.stack-list {
+  display: grid;
+  gap: 12px;
+}
+
+.workflow-row {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.34);
+}
+
+.workflow-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.workflow-top strong {
+  font-size: 1rem;
+}
+
+.workflow-badge {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--stamp);
+}
+
+.workflow-row p {
+  margin: 8px 0 0;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.workflow-signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.workflow-signal {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #e7ddc3;
+  border: 1px solid #d4c7a3;
+  font-size: 12px;
+  color: #64583d;
+}
+
+.compact-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.34);
+}
+
+.compact-card strong {
+  line-height: 1.5;
+}
+
+.compact-card p {
+  margin: 0;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.compact-label {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.muted-card {
+  color: var(--muted);
 }
 
 .overview-grid {
@@ -673,7 +806,9 @@ h1.stampfont {
   .hero-grid,
   .status-band,
   .feature-grid,
-  .result-columns {
+  .result-columns,
+  .result-rail,
+  .evidence-model {
     grid-template-columns: 1fr;
   }
 
@@ -716,7 +851,23 @@ h1.stampfont {
   }
 
   .feature-grid,
-  .overview-grid {
+  .overview-grid,
+  .result-rail,
+  .evidence-model {
     grid-template-columns: 1fr;
+  }
+
+  .result-columns {
+    gap: 16px;
+  }
+
+  .workflow-top,
+  .result-top {
+    flex-direction: column;
+    align-items: start;
+  }
+
+  .confidence-wrap {
+    min-width: 0;
   }
 }
