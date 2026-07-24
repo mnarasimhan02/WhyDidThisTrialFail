@@ -106,21 +106,6 @@ Depending on the NCT ID, the app may return:
 - PubMed-linked publication context
 - a conservative bottom line when the public trail is thin
 
-## Screenshots
-
-Preview renders are included below so the README shows the intended product shape even before deployment captures are available.
-
-![Homepage](./screenshots/homepage.png)
-![Investigation results](./screenshots/results.png)
-![Mobile view](./screenshots/mobile.png)
-
-Suggested captures for later:
-
-- homepage before search
-- loading or investigating state
-- results page with hypotheses and evidence
-- mobile view
-
 ## Local development
 
 ```bash
