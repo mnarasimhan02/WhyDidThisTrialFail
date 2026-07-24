@@ -170,6 +170,17 @@ export default function Home() {
       <div className="ambient ambient-left" />
       <div className="ambient ambient-right" />
 
+      <header className="topbar">
+        <div className="topbar-brand">
+          <span className="brand-mark">WTF</span>
+          <div>
+            <strong>WhyDidThisTrialFail</strong>
+            <p>Public-source trial intelligence</p>
+          </div>
+        </div>
+        <div className="topbar-meta">One NCT ID. One investigation. No uploads.</div>
+      </header>
+
       <section className="hero">
         <div className="hero-copy">
           <div className="eyebrow-row">
@@ -183,7 +194,9 @@ export default function Home() {
             record, the most plausible failure hypotheses, and the evidence behind
             each one.
           </p>
-          <p className="sublede">Example IDs to try: {exampleLabel}</p>
+          <p className="sublede">
+            Example IDs to try: <span>{exampleLabel}</span>
+          </p>
 
           <div className="hero-metrics">
             {metricCard("1", "NCT ID is enough")}
@@ -196,7 +209,7 @@ export default function Home() {
           <div className="hero-panel-top">
             <div>
               <span className="panel-kicker">Start investigation</span>
-              <h2>Enter one NCT ID</h2>
+              <h2>Enter one trial ID</h2>
             </div>
             <span className={`badge ${state.status === "loading" ? "badge-warm" : "badge-cool"}`}>
               {state.status === "loading" ? "Investigating" : "Ready"}
