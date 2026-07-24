@@ -89,7 +89,7 @@ type ApiState =
 
 const starterExamples = ["NCT01234567", "NCT03163767", "NCT04280705"];
 
-function classForConfidence(value: string) {
+function confidenceClass(value: string) {
   if (value === "high") return "pill pill-high";
   if (value === "medium") return "pill pill-medium";
   if (value === "low") return "pill pill-low";
@@ -107,14 +107,30 @@ function formatDate(value?: string) {
   }).format(date);
 }
 
+function metricCard(value: string | number, label: string) {
+  return (
+    <div className="metric">
+      <strong>{value}</strong>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function sourceCard(name: string, detail: string, url: string) {
+  return (
+    <a className="source-card" href={url} target="_blank" rel="noreferrer">
+      <span className="source-name">{name}</span>
+      <p>{detail}</p>
+      <span className="source-link">Open source</span>
+    </a>
+  );
+}
+
 export default function Home() {
   const [nctId, setNctId] = useState("NCT01234567");
   const [state, setState] = useState<ApiState>({ status: "idle" });
 
-  const exampleLabel = useMemo(
-    () => starterExamples.join(" · "),
-    [],
-  );
+  const exampleLabel = useMemo(() => starterExamples.join(" · "), []);
 
   async function investigate() {
     const trimmed = nctId.trim().toUpperCase();
@@ -130,16 +146,13 @@ export default function Home() {
 
     try {
       const response = await fetch(`/api/investigate?nctId=${encodeURIComponent(trimmed)}`);
-      const payload = (await response.json()) as
-        | InvestigationResponse
-        | { error?: string };
-      const isErrorPayload = "error" in payload && typeof payload.error === "string";
+      const payload = (await response.json()) as InvestigationResponse | { error?: string };
+      const hasError = "error" in payload && typeof payload.error === "string";
 
-      if (!response.ok || isErrorPayload) {
-        const message = isErrorPayload && payload.error
-          ? payload.error
-          : "The investigation service could not complete this request.";
-        throw new Error(message);
+      if (!response.ok || hasError) {
+        throw new Error(
+          hasError && payload.error ? payload.error : "The investigation service could not complete this request.",
+        );
       }
 
       setState({ status: "success", data: payload as InvestigationResponse });
@@ -153,102 +166,118 @@ export default function Home() {
   }
 
   return (
-    <main className="page-shell">
+    <main className="app-shell">
+      <div className="ambient ambient-left" />
+      <div className="ambient ambient-right" />
+
       <section className="hero">
-        <div className="badge-row">
-          <span className="eyebrow">Public-source trial investigation</span>
-          <span className="status-chip">No uploads required</span>
-        </div>
-
         <div className="hero-copy">
-          <div className="hero-text">
-            <h1>WhyDidThisTrialFail</h1>
-            <p className="lede">
-              Paste one NCT ID and get a source-backed investigation of the public
-              record, the most plausible failure hypotheses, and the evidence behind
-              each one.
-            </p>
-            <p className="sublede">
-              Example IDs to try: {exampleLabel}
-            </p>
+          <div className="eyebrow-row">
+            <span className="eyebrow">Public-source trial intelligence</span>
+            <span className="status-chip">No uploads required</span>
           </div>
 
-          <div className="input-card" aria-label="Trial search">
-            <label htmlFor="nctId">NCT ID</label>
-            <div className="input-row">
-              <input
-                id="nctId"
-                value={nctId}
-                onChange={(event) => setNctId(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    investigate();
-                  }
-                }}
-                placeholder="NCT01234567"
-                autoComplete="off"
-                spellCheck={false}
-              />
-              <button type="button" onClick={investigate} disabled={state.status === "loading"}>
-                {state.status === "loading" ? "Investigating..." : "Investigate"}
-              </button>
-            </div>
-            <p className="fineprint">
-              One ID is enough. The app automatically checks ClinicalTrials.gov,
-              PubMed, and registry-derived trial context.
-            </p>
+          <h1>WhyDidThisTrialFail</h1>
+          <p className="lede">
+            Paste one NCT ID and get a source-backed investigation of the public
+            record, the most plausible failure hypotheses, and the evidence behind
+            each one.
+          </p>
+          <p className="sublede">Example IDs to try: {exampleLabel}</p>
+
+          <div className="hero-metrics">
+            {metricCard("1", "NCT ID is enough")}
+            {metricCard("3-step", "agent workflow")}
+            {metricCard("Public", "source-first reasoning")}
           </div>
         </div>
+
+        <aside className="hero-panel">
+          <div className="hero-panel-top">
+            <div>
+              <span className="panel-kicker">Start investigation</span>
+              <h2>Enter one NCT ID</h2>
+            </div>
+            <span className={`badge ${state.status === "loading" ? "badge-warm" : "badge-cool"}`}>
+              {state.status === "loading" ? "Investigating" : "Ready"}
+            </span>
+          </div>
+
+          <label className="field-label" htmlFor="nctId">
+            NCT ID
+          </label>
+          <div className="input-row">
+            <input
+              id="nctId"
+              value={nctId}
+              onChange={(event) => setNctId(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  investigate();
+                }
+              }}
+              placeholder="NCT01234567"
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <button type="button" onClick={investigate} disabled={state.status === "loading"}>
+              {state.status === "loading" ? "Investigating..." : "Investigate"}
+            </button>
+          </div>
+          <p className="fineprint">
+            The app checks ClinicalTrials.gov, PubMed, and registry-derived trial context automatically.
+          </p>
+        </aside>
       </section>
 
-      <section className="status-band">
-        <div>
-          <div className="label">Investigation status</div>
-          <div className={`status ${state.status === "error" ? "status-error" : ""}`}>
+      <section className="status-strip">
+        <div className="status-card">
+          <span className="card-label">Investigation status</span>
+          <strong className={state.status === "error" ? "status-error" : ""}>
             {state.status === "idle" && "Ready"}
             {state.status === "loading" && "Gathering public sources and ranking hypotheses..."}
             {state.status === "error" && state.message}
             {state.status === "success" && `Investigation complete for ${state.data.nctId}.`}
-          </div>
+          </strong>
         </div>
-        <div>
-          <div className="label">Guardrail</div>
-          <div className="status subtle">
-            The app labels facts, inferences, and hypotheses separately so it does
-            not overstate causality.
-          </div>
+        <div className="status-card subtle">
+          <span className="card-label">Guardrail</span>
+          <strong>
+            Facts, derived facts, and hypotheses are labeled separately so the app does not overstate causality.
+          </strong>
         </div>
       </section>
 
       {state.status === "success" ? (
         <section className="results">
-          <article className="summary-card">
-            <div className="summary-top">
-              <div>
-                <div className="label">Bottom line</div>
-                <h2>{state.data.overview.title}</h2>
-              </div>
-              <div className="badge-stack">
-                <span className={`score score-${state.data.verdict}`}>
-                  Likelihood: {state.data.verdict}
-                </span>
-                <span className="score score-muted">{state.data.overview.phase}</span>
-                {state.data.sourceTimestamp ? (
-                  <span className="score score-muted">
-                    Data current as of {formatDate(state.data.sourceTimestamp)}
-                  </span>
-                ) : null}
-              </div>
+          <article className="result-hero">
+            <div className="result-hero-copy">
+              <span className="card-label">Bottom line</span>
+              <h2>{state.data.overview.title}</h2>
+              <p>{state.data.bottomLine}</p>
             </div>
-            <p className="summary-text">{state.data.bottomLine}</p>
+
+            <div className="result-badges">
+              <span className={`badge verdict-${state.data.verdict}`}>
+                Likelihood: {state.data.verdict}
+              </span>
+              <span className="badge badge-cool">{state.data.overview.phase}</span>
+              {state.data.sourceTimestamp ? (
+                <span className="badge badge-muted">
+                  Data current as of {formatDate(state.data.sourceTimestamp)}
+                </span>
+              ) : null}
+            </div>
           </article>
 
           <div className="grid-two">
             <article className="panel">
-              <div className="panel-head">
-                <h3>Trial overview</h3>
-                <p>NCT {state.data.nctId}</p>
+              <div className="panel-header">
+                <div>
+                  <span className="card-label">Trial overview</span>
+                  <h3>NCT {state.data.nctId}</h3>
+                </div>
               </div>
               <dl className="definition-grid">
                 <div>
@@ -285,45 +314,47 @@ export default function Home() {
                 </div>
                 <div>
                   <dt>Locations</dt>
-                  <dd>
-                    {state.data.overview.locationsCount?.toLocaleString("en-US") ?? "Not reported"}
-                  </dd>
+                  <dd>{state.data.overview.locationsCount?.toLocaleString("en-US") ?? "Not reported"}</dd>
                 </div>
               </dl>
             </article>
 
             <article className="panel">
-              <div className="panel-head">
-                <h3>Timeline</h3>
-                <p>Public lifecycle events</p>
+              <div className="panel-header">
+                <div>
+                  <span className="card-label">Timeline</span>
+                  <h3>Public lifecycle events</h3>
+                </div>
               </div>
               <div className="stack">
                 {state.data.timeline.map((item) => (
-                  <div className="stack-item" key={`${item.date}-${item.event}`}>
-                    <div className="meta">
+                  <a className="stack-item timeline-item" href={item.url} target="_blank" rel="noreferrer" key={`${item.date}-${item.event}`}>
+                    <span className="meta">
                       {formatDate(item.date)} · {item.source}
-                    </div>
-                    <div>{item.event}</div>
-                    <a href={item.url} target="_blank" rel="noreferrer">
-                      Open source
-                    </a>
-                  </div>
+                    </span>
+                    <strong>{item.event}</strong>
+                  </a>
                 ))}
               </div>
             </article>
           </div>
 
-          <article className="panel">
-            <div className="panel-head">
-              <h3>Failure hypotheses</h3>
-              <p>Ranked by evidence quality, not by certainty</p>
+          <article className="panel panel-wide">
+            <div className="panel-header">
+              <div>
+                <span className="card-label">Failure hypotheses</span>
+                <h3>Ranked by evidence quality, not certainty</h3>
+              </div>
             </div>
             <div className="stack">
               {state.data.hypotheses.map((hypothesis) => (
-                <section className="stack-item hypothesis" key={hypothesis.id}>
-                  <div className="hypothesis-head">
-                    <h4>{hypothesis.label}</h4>
-                    <span className={classForConfidence(hypothesis.confidence)}>
+                <section className="hypothesis-card" key={hypothesis.id}>
+                  <div className="hypothesis-top">
+                    <div>
+                      <span className="meta">{hypothesis.id}</span>
+                      <h4>{hypothesis.label}</h4>
+                    </div>
+                    <span className={confidenceClass(hypothesis.confidence)}>
                       {hypothesis.confidence} confidence
                     </span>
                   </div>
@@ -333,31 +364,27 @@ export default function Home() {
                   {hypothesis.evidence.length > 0 ? (
                     <div className="evidence-grid">
                       {hypothesis.evidence.map((item, index) => (
-                        <div className="evidence-card" key={`${hypothesis.id}-e-${index}`}>
-                          <div className="meta">
+                        <a className="evidence-card" key={`${hypothesis.id}-e-${index}`} href={item.url} target="_blank" rel="noreferrer">
+                          <span className="meta">
                             {item.sourceType} · {item.citation}
-                          </div>
-                          <div>{item.claim}</div>
-                          <a href={item.url} target="_blank" rel="noreferrer">
-                            Open supporting source
-                          </a>
-                        </div>
+                          </span>
+                          <strong>{item.claim}</strong>
+                          <span className="source-link">Open supporting source</span>
+                        </a>
                       ))}
                     </div>
                   ) : null}
 
                   {hypothesis.counterevidence.length > 0 ? (
                     <div className="counter-block">
-                      <div className="meta">Counterevidence</div>
+                      <span className="meta">Counterevidence</span>
                       <div className="evidence-grid">
                         {hypothesis.counterevidence.map((item, index) => (
-                          <div className="evidence-card evidence-card-muted" key={`${hypothesis.id}-c-${index}`}>
-                            <div>{item.citation}</div>
-                            <div>{item.claim}</div>
-                            <a href={item.url} target="_blank" rel="noreferrer">
-                              Open source
-                            </a>
-                          </div>
+                          <a className="evidence-card evidence-card-muted" key={`${hypothesis.id}-c-${index}`} href={item.url} target="_blank" rel="noreferrer">
+                            <span className="meta">{item.citation}</span>
+                            <strong>{item.claim}</strong>
+                            <span className="source-link">Open source</span>
+                          </a>
                         ))}
                       </div>
                     </div>
@@ -369,50 +396,47 @@ export default function Home() {
 
           <div className="grid-two">
             <article className="panel">
-              <div className="panel-head">
-                <h3>Related trials</h3>
-                <p>Similar programs and comparator context</p>
+              <div className="panel-header">
+                <div>
+                  <span className="card-label">Related trials</span>
+                  <h3>Comparator context</h3>
+                </div>
               </div>
               <div className="stack">
                 {state.data.relatedTrials.length > 0 ? (
                   state.data.relatedTrials.map((trial) => (
-                    <div className="stack-item" key={trial.nctId}>
-                      <div className="meta">{trial.nctId}</div>
-                      <div className="related-title">{trial.title}</div>
+                    <a className="stack-item trial-card" key={trial.nctId} href={trial.url} target="_blank" rel="noreferrer">
+                      <span className="meta">{trial.nctId} · {trial.status}</span>
+                      <strong className="title">{trial.title}</strong>
                       <p>{trial.relevance}</p>
-                      <div className="meta">{trial.status}</div>
-                      <a href={trial.url} target="_blank" rel="noreferrer">
-                        Open source
-                      </a>
-                    </div>
+                    </a>
                   ))
                 ) : (
-                  <div className="stack-item">No public similar trials were found.</div>
+                  <div className="empty-card">No public similar trials were found.</div>
                 )}
               </div>
             </article>
 
             <article className="panel">
-              <div className="panel-head">
-                <h3>Public publications</h3>
-                <p>Linked from PubMed</p>
+              <div className="panel-header">
+                <div>
+                  <span className="card-label">Public publications</span>
+                  <h3>Linked from PubMed</h3>
+                </div>
               </div>
               <div className="stack">
                 {state.data.publications.length > 0 ? (
                   state.data.publications.map((publication) => (
-                    <div className="stack-item" key={publication.pmid}>
-                      <div className="meta">
+                    <a className="stack-item trial-card" key={publication.pmid} href={publication.url} target="_blank" rel="noreferrer">
+                      <span className="meta">
                         {publication.year} · {publication.journal} · PMID {publication.pmid}
-                      </div>
-                      <div className="pub-title">{publication.title}</div>
+                      </span>
+                      <strong className="title">{publication.title}</strong>
                       {publication.abstract ? <p>{publication.abstract}</p> : null}
-                      <a href={publication.url} target="_blank" rel="noreferrer">
-                        Open PubMed
-                      </a>
-                    </div>
+                    </a>
                   ))
                 ) : (
-                  <div className="stack-item">No PubMed record surfaced for this trial yet.</div>
+                  <div className="empty-card">No PubMed record surfaced for this trial yet.</div>
                 )}
               </div>
             </article>
@@ -420,40 +444,32 @@ export default function Home() {
 
           <div className="grid-two">
             <article className="panel">
-              <div className="panel-head">
-                <h3>Evidence model</h3>
-                <p>How the app classifies claims</p>
+              <div className="panel-header">
+                <div>
+                  <span className="card-label">Evidence model</span>
+                  <h3>How the app classifies claims</h3>
+                </div>
               </div>
               <div className="metrics">
-                <div>
-                  <strong>{state.data.evidenceModel.directFacts}</strong>
-                  <span>Direct facts</span>
-                </div>
-                <div>
-                  <strong>{state.data.evidenceModel.derivedFacts}</strong>
-                  <span>Derived facts</span>
-                </div>
-                <div>
-                  <strong>{state.data.evidenceModel.inferences}</strong>
-                  <span>Inferences</span>
-                </div>
-                <div>
-                  <strong>{state.data.evidenceModel.unsupportedClaims}</strong>
-                  <span>Rejected claims</span>
-                </div>
+                {metricCard(state.data.evidenceModel.directFacts, "Direct facts")}
+                {metricCard(state.data.evidenceModel.derivedFacts, "Derived facts")}
+                {metricCard(state.data.evidenceModel.inferences, "Inferences")}
+                {metricCard(state.data.evidenceModel.unsupportedClaims, "Rejected claims")}
               </div>
             </article>
 
             <article className="panel">
-              <div className="panel-head">
-                <h3>3-step agent flow</h3>
-                <p>Research, reasoning, then judge</p>
+              <div className="panel-header">
+                <div>
+                  <span className="card-label">3-step agent flow</span>
+                  <h3>Research, reasoning, judge</h3>
+                </div>
               </div>
               <div className="stack">
                 {state.data.workflow.map((step) => (
-                  <div className="stack-item" key={step.name}>
-                    <div className="meta">{step.name}</div>
-                    <div>{step.summary}</div>
+                  <div className="stack-item workflow-card" key={step.name}>
+                    <span className="meta">{step.name}</span>
+                    <strong>{step.summary}</strong>
                     <div className="signal-list">
                       {step.signals.map((signal) => (
                         <span key={signal} className="signal-pill">
@@ -469,9 +485,11 @@ export default function Home() {
 
           <div className="grid-two">
             <article className="panel">
-              <div className="panel-head">
-                <h3>What is uncertain</h3>
-                <p>The app says this plainly</p>
+              <div className="panel-header">
+                <div>
+                  <span className="card-label">What is uncertain</span>
+                  <h3>The app stays explicit about limits</h3>
+                </div>
               </div>
               <ul className="bullet-list">
                 {state.data.limitations.map((item) => (
@@ -481,28 +499,27 @@ export default function Home() {
             </article>
 
             <article className="panel">
-              <div className="panel-head">
-                <h3>Source map</h3>
-                <p>What the app checked automatically</p>
+              <div className="panel-header">
+                <div>
+                  <span className="card-label">Source map</span>
+                  <h3>Public sources checked automatically</h3>
+                </div>
               </div>
               <div className="source-grid">
-                {state.data.sources.map((source) => (
-                  <div className="stack-item" key={source.name}>
-                    <div className="related-title">{source.name}</div>
-                    <p>{source.detail}</p>
-                    <a href={source.url} target="_blank" rel="noreferrer">
-                      Open source
-                    </a>
-                  </div>
-                ))}
+                {state.data.sources.map((source) => sourceCard(source.name, source.detail, source.url))}
               </div>
             </article>
           </div>
         </section>
       ) : (
         <section className="results placeholder">
-          <article className="panel">
-            <h3>What you’ll get</h3>
+          <article className="panel panel-wide">
+            <div className="panel-header">
+              <div>
+                <span className="card-label">What you’ll get</span>
+                <h3>Clear, source-first trial intelligence</h3>
+              </div>
+            </div>
             <div className="placeholder-grid">
               <div className="placeholder-card">
                 <strong>Bottom line</strong>
