@@ -147,6 +147,31 @@ function tierStyle(key: keyof typeof TIERS, index: number) {
   };
 }
 
+function ConfBadge({ level }: { level: "high" | "medium" | "low" }) {
+  const tier =
+    level === "high"
+      ? { label: "High confidence", color: "#1F5C4B", bg: "#DCE8E1" }
+      : level === "medium"
+        ? { label: "Medium confidence", color: "#8A6416", bg: "#EDE3C8" }
+        : { label: "Low confidence", color: "#8B3A22", bg: "#EDDCD1" };
+
+  return (
+    <span
+      className="mono inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+      style={{
+        background: tier.bg,
+        color: tier.color,
+        fontSize: 11,
+        fontWeight: 600,
+        letterSpacing: "0.04em",
+      }}
+    >
+      <span style={{ width: 6, height: 6, borderRadius: 999, background: tier.color }} />
+      {tier.label}
+    </span>
+  );
+}
+
 function confTone(level: "high" | "medium" | "low" | "unknown") {
   if (level === "high") return "high";
   if (level === "medium") return "medium";
