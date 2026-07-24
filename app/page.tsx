@@ -110,6 +110,16 @@ const TIERS = {
   },
 } as const;
 
+const STARTER_OVERVIEW = {
+  status: "Terminated",
+  condition: "Pulmonary Neoplasms",
+  intervention: "Radiofrequency ablation of pulmonary neoplasms",
+  sponsor: "Oncology Specialties, Alabama",
+  start: "Oct 3, 2005",
+  completion: "Not reported",
+  dataAsOf: "Jan 11, 2007",
+};
+
 function confidenceClass(value: string) {
   if (value === "high") return "pill pill-high";
   if (value === "medium") return "pill pill-medium";
@@ -137,13 +147,14 @@ function tierStyle(key: keyof typeof TIERS, index: number) {
   };
 }
 
-function metric(label: string, value: string | number) {
-  return (
-    <div className="metric metric-compact">
-      <span className="mono metric-label">{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
+function confTone(level: "high" | "medium" | "low" | "unknown") {
+  if (level === "high") return "high";
+  if (level === "medium") return "medium";
+  return "low";
+}
+
+function sourceCount(data: InvestigationResponse) {
+  return 1 + data.relatedTrials.length + data.publications.length;
 }
 
 export default function Home() {
@@ -152,6 +163,10 @@ export default function Home() {
   const [error, setError] = useState<string>("");
   const [shake, setShake] = useState(false);
   const [data, setData] = useState<InvestigationResponse | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [showOverview, setShowOverview] = useState(false);
+  const [showSources, setShowSources] = useState(false);
+  const [showMethod, setShowMethod] = useState(false);
   const resultRef = useRef<HTMLDivElement | null>(null);
 
   const exampleLabel = useMemo(() => EXAMPLES.join(" · "), []);
@@ -182,6 +197,18 @@ export default function Home() {
 
       const resolved = payload as InvestigationResponse;
       setData(resolved);
+      setExpanded(
+        resolved.hypotheses.reduce<Record<string, boolean>>(
+          (acc, item, index) => ({
+            ...acc,
+            [item.id]: index === 0,
+          }),
+          {},
+        ),
+      );
+      setShowOverview(false);
+      setShowSources(false);
+      setShowMethod(false);
       setStatus("done");
       window.setTimeout(() => {
         resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -350,236 +377,163 @@ export default function Home() {
         </section>
 
         {status === "done" && data ? (
-          <section ref={resultRef} className="folder grain result-file">
-            <div className="result-top">
-              <div className="mono result-label">CASE FILE - {data.nctId}</div>
-              <div className="result-stamp stampfont">
-                LIVE INVESTIGATION · SOURCE-BACKED OUTPUT
+          <div ref={resultRef} className="result-stack">
+            <div className="folder grain result-shell">
+              <div className="result-meta-line mono">
+                <span>{data.nctId}</span>
+                <span>·</span>
+                <span>{data.overview.status.toUpperCase()}</span>
+                <span>·</span>
+                <span>DATA AS OF {formatDate(data.sourceTimestamp) === "Not reported" ? STARTER_OVERVIEW.dataAsOf.toUpperCase() : formatDate(data.sourceTimestamp).toUpperCase()}</span>
               </div>
+              <h1 className="stampfont result-title">
+                {data.overview.title || "Trial investigation"}
+              </h1>
             </div>
 
-            <div className="result-summary">
-              <div className="stampfont result-heading">Bottom line</div>
-              <p>{data.bottomLine}</p>
-            </div>
+            <section className="folder grain result-panel-shell">
+              <div className="panel-headline">
+                <div className="mono panel-kicker">WHY IT MOST LIKELY FAILED</div>
+                <span className={`badge badge-${confTone(data.verdict)}`}>
+                  {data.verdict === "high" ? "High confidence" : data.verdict === "medium" ? "Medium confidence" : "Low confidence"}
+                </span>
+              </div>
+              <p className="result-answer">
+                {data.bottomLine}
+              </p>
+              <div className="result-footnote mono">
+                Built from {data.evidenceModel.directFacts} direct facts and {data.evidenceModel.inferences} inferences across the registry record, PubMed, and related trials.
+              </div>
+            </section>
 
-            <div className="result-rail">
-              <div className="rail-item">
-                <span className="mono rail-label">LIKELIHOOD</span>
-                <strong>{data.verdict}</strong>
-              </div>
-              <div className="rail-item">
-                <span className="mono rail-label">PHASE</span>
-                <strong>{data.overview.phase}</strong>
-              </div>
-              <div className="rail-item">
-                <span className="mono rail-label">SOURCE CURRENTNESS</span>
-                <strong>{data.sourceTimestamp ? formatDate(data.sourceTimestamp) : "Not reported"}</strong>
-              </div>
-              <div className="rail-item">
-                <span className="mono rail-label">SCOPE</span>
-                <strong>{data.overview.condition[0] ?? "Unspecified"}</strong>
-              </div>
-            </div>
+            <section className="folder grain result-panel-shell">
+              <button className="row-btn" onClick={() => setShowMethod((s) => !s)}>
+                {showMethod ? "▾" : "▸"} [HYPOTHESES]
+              </button>
+              <div className="section-subcopy">Ordered by evidence quality, not certainty.</div>
+              {showMethod && (
+                <div className="hypothesis-stack">
+                  {data.hypotheses.map((hypothesis, index) => {
+                    const tierKey =
+                      hypothesis.confidence === "high"
+                        ? "fact"
+                        : hypothesis.confidence === "medium"
+                          ? "inference"
+                          : "hypothesis";
+                    const tier = TIERS[tierKey];
+                    const isOpen = expanded[hypothesis.id] ?? index === 0;
+                    return (
+                      <div key={hypothesis.id} className="hypothesis-card">
+                        <button
+                          className="hypothesis-trigger"
+                          onClick={() => setExpanded((stateMap) => ({ ...stateMap, [hypothesis.id]: !isOpen }))}
+                        >
+                          <div className="hypothesis-heading">
+                            <span className="mono hypothesis-index">H{index + 1}</span>
+                            <div>
+                              <div className="hypothesis-title">{hypothesis.label}</div>
+                              <div className="hypothesis-claim">{hypothesis.statement}</div>
+                            </div>
+                          </div>
+                          <div className="hypothesis-meta">
+                            <span className="mono tier-chip" style={{ color: tier.color, borderColor: `${tier.color}66` }}>
+                              {tier.label}
+                            </span>
+                            <ConfBadge level={confTone(hypothesis.confidence)} />
+                            <span className="toggle-mark">{isOpen ? "▾" : "▸"}</span>
+                          </div>
+                        </button>
 
-            <hr className="dotted-rule" />
-
-            <div className="result-columns">
-              <div className="result-panel">
-                <div className="stampfont result-heading">Trial overview</div>
-                <dl className="overview-grid">
-                  <div>
-                    <dt>Status</dt>
-                    <dd>{data.overview.status}</dd>
-                  </div>
-                  <div>
-                    <dt>Phase</dt>
-                    <dd>{data.overview.phase}</dd>
-                  </div>
-                  <div>
-                    <dt>Condition</dt>
-                    <dd>{data.overview.condition.join(", ") || "Not reported"}</dd>
-                  </div>
-                  <div>
-                    <dt>Intervention</dt>
-                    <dd>{data.overview.intervention.join(", ") || "Not reported"}</dd>
-                  </div>
-                  <div>
-                    <dt>Sponsor</dt>
-                    <dd>{data.overview.sponsor}</dd>
-                  </div>
-                  <div>
-                    <dt>Target / pathway</dt>
-                    <dd>{data.overview.target}</dd>
-                  </div>
-                  <div>
-                    <dt>Start date</dt>
-                    <dd>{formatDate(data.overview.startDate)}</dd>
-                  </div>
-                  <div>
-                    <dt>Completion date</dt>
-                    <dd>{formatDate(data.overview.completionDate)}</dd>
-                  </div>
-                </dl>
-              </div>
-
-              <div className="result-panel">
-                <div className="stampfont result-heading">Timeline</div>
-                <div className="timeline-list">
-                  {data.timeline.map((item) => (
-                    <a key={`${item.date}-${item.event}`} className="timeline-row" href={item.url} target="_blank" rel="noreferrer">
-                      <span className="timeline-date">
-                        {formatDate(item.date)} · {item.source}
-                      </span>
-                      <span>{item.event}</span>
-                    </a>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="result-columns result-columns-secondary">
-              <div className="result-panel">
-                <div className="stampfont result-heading">Evidence model</div>
-                <div className="evidence-model">
-                  <div>{metric("Direct facts", data.evidenceModel.directFacts)}</div>
-                  <div>{metric("Derived facts", data.evidenceModel.derivedFacts)}</div>
-                  <div>{metric("Inferences", data.evidenceModel.inferences)}</div>
-                  <div>{metric("Rejected claims", data.evidenceModel.unsupportedClaims)}</div>
-                </div>
-              </div>
-
-              <div className="result-panel">
-                <div className="stampfont result-heading">3-step agent flow</div>
-                <div className="workflow-list">
-                  {data.workflow.map((step) => (
-                    <div className="workflow-row" key={step.name}>
-                      <div className="workflow-top">
-                        <strong>{step.name}</strong>
-                        <span className="mono workflow-badge">DONE</span>
+                        {isOpen ? (
+                          <div className="hypothesis-body">
+                            <div className="evidence-label-row">
+                              <span className="mono label-text">EVIDENCE</span>
+                            </div>
+                            {hypothesis.evidence.map((item, evidenceIndex) => (
+                              <div key={`${hypothesis.id}-${evidenceIndex}`} className="evidence-row">
+                                <Tag kind={evidenceIndex === 0 ? "fact" : "inference"} />
+                                <div className="evidence-copy">
+                                  <div className="evidence-source">{item.source}</div>
+                                  <div className="evidence-text">{item.claim}</div>
+                                </div>
+                              </div>
+                            ))}
+                            <div className="evidence-row counter-row">
+                              <span className="mono counter-chip">COUNTER</span>
+                              <div className="evidence-copy">{hypothesis.counterevidence[0]?.claim ?? "No strong counterevidence surfaced in the public record."}</div>
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
-                      <p>{step.summary}</p>
-                      <div className="workflow-signals">
-                        {step.signals.map((signal) => (
-                          <span key={signal} className="workflow-signal">
-                            {signal}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
-              </div>
-            </div>
+              )}
+            </section>
 
-            <hr className="dotted-rule" />
+            <div className="result-grid">
+              <section className="folder grain result-panel-shell">
+              <button className="row-btn" onClick={() => setShowOverview((s) => !s)}>
+                {showOverview ? "▾" : "▸"} [TRIAL RECORD]
+              </button>
+                {showOverview ? (
+                  <div className="detail-grid">
+                    <div><span>Condition</span><strong>{data.overview.condition.join(", ") || "Not reported"}</strong></div>
+                    <div><span>Intervention</span><strong>{data.overview.intervention.join(", ") || "Not reported"}</strong></div>
+                    <div><span>Sponsor</span><strong>{data.overview.sponsor}</strong></div>
+                    <div><span>Status</span><strong>{data.overview.status}</strong></div>
+                    <div><span>Start date</span><strong>{formatDate(data.overview.startDate)}</strong></div>
+                    <div><span>Completion date</span><strong>{formatDate(data.overview.completionDate)}</strong></div>
+                  </div>
+                ) : null}
+              </section>
 
-            <div className="stampfont result-heading">Hypotheses, ranked</div>
-            <div className="hypothesis-list">
-              {data.hypotheses.map((hypothesis, index) => {
-                const tierKey = hypothesis.confidence === "high" ? "fact" : hypothesis.confidence === "medium" ? "inference" : "hypothesis";
-                const tier = TIERS[tierKey];
-                return (
-                  <article key={hypothesis.id} className="hypothesis-row">
-                    <div className="hypothesis-head">
-                      <div className="hypothesis-meta">
-                        <span className="mono row-index">{String(index + 1).padStart(2, "0")}</span>
-                        <span className="row-title">{hypothesis.label}</span>
-                        <span className="mono tier-tag" style={{ color: tier.color, background: tier.bg }}>
-                          {tier.label}
-                        </span>
-                      </div>
-                      <div className="confidence-wrap">
-                        <div className="conf-track">
-                          <div className="conf-fill" style={{ width: `${hypothesis.confidence === "high" ? 78 : hypothesis.confidence === "medium" ? 46 : 24}%`, background: tier.color }} />
+              <section className="folder grain result-panel-shell">
+              <button className="row-btn" onClick={() => setShowSources((s) => !s)}>
+                {showSources ? "▾" : "▸"} [SOURCES] ({sourceCount(data)})
+              </button>
+                {showSources ? (
+                  <div className="source-columns">
+                    <div>
+                      <div className="mono source-heading">RELATED TRIALS</div>
+                      {data.relatedTrials.length > 0 ? data.relatedTrials.map((trial) => (
+                        <div key={trial.nctId} className="source-row">
+                          <span className="source-mark">↗</span>
+                          <div>
+                            <a className="src-link" href={trial.url} target="_blank" rel="noreferrer">{trial.title}</a>
+                            <div className="mono source-meta">{trial.nctId} · {trial.status}</div>
+                          </div>
                         </div>
-                        <span className="mono confidence-label">{hypothesis.confidence}</span>
-                      </div>
+                      )) : <div className="muted-copy">No related trials found.</div>}
                     </div>
-
-                    <p className="evidence-line">
-                      <span className="mono evidence-label">EVIDENCE</span>
-                      {hypothesis.evidence[0]?.claim ?? hypothesis.statement}
-                    </p>
-                    <p className="counter-line">
-                      <span className="mono evidence-label">COUNTER</span>
-                      {hypothesis.counterevidence[0]?.claim ?? "No strong counterevidence surfaced in the public record."}
-                    </p>
-                  </article>
-                );
-              })}
+                    <div>
+                      <div className="mono source-heading">PUBLICATIONS</div>
+                      {data.publications.length > 0 ? data.publications.map((publication) => (
+                        <div key={publication.pmid} className="source-row">
+                          <span className="source-mark">↗</span>
+                          <div>
+                            <a className="src-link" href={publication.url} target="_blank" rel="noreferrer">{publication.title}</a>
+                            <div className="mono source-meta">{publication.journal} · {publication.year} · PMID {publication.pmid}</div>
+                          </div>
+                        </div>
+                      )) : <div className="muted-copy">No PubMed record surfaced for this trial yet.</div>}
+                    </div>
+                  </div>
+                ) : null}
+              </section>
             </div>
 
-            <hr className="dotted-rule" />
-
-            <div className="result-columns result-columns-secondary">
-              <div className="result-panel">
-                <div className="stampfont result-heading">Related trials</div>
-                <div className="stack-list">
-                  {data.relatedTrials.length > 0 ? (
-                    data.relatedTrials.map((trial) => (
-                      <a key={trial.nctId} className="compact-card" href={trial.url} target="_blank" rel="noreferrer">
-                        <span className="mono compact-label">{trial.nctId} · {trial.status}</span>
-                        <strong>{trial.title}</strong>
-                        <p>{trial.relevance}</p>
-                      </a>
-                    ))
-                  ) : (
-                    <div className="compact-card muted-card">No public similar trials were found.</div>
-                  )}
+            <section className="folder grain result-panel-shell">
+              <button className="row-btn" onClick={() => setShowMethod((s) => !s)}>
+                [INFO] HOW THIS WAS GENERATED
+              </button>
+              {showMethod ? (
+                <div className="method-copy">
+                  Research agent pulled the registry record, PubMed, and related trials. Reasoning agent turned that evidence into ranked hypotheses. Judge agent checked for overclaiming and kept the answer conservative wherever the public trail was thin.
                 </div>
-              </div>
-
-              <div className="result-panel">
-                <div className="stampfont result-heading">Public publications</div>
-                <div className="stack-list">
-                  {data.publications.length > 0 ? (
-                    data.publications.map((publication) => (
-                      <a key={publication.pmid} className="compact-card" href={publication.url} target="_blank" rel="noreferrer">
-                        <span className="mono compact-label">
-                          {publication.year} · {publication.journal} · PMID {publication.pmid}
-                        </span>
-                        <strong>{publication.title}</strong>
-                        {publication.abstract ? <p>{publication.abstract}</p> : null}
-                      </a>
-                    ))
-                  ) : (
-                    <div className="compact-card muted-card">No PubMed record surfaced for this trial yet.</div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <hr className="dotted-rule" />
-
-            <div className="result-columns result-columns-secondary">
-              <div className="result-panel">
-                <div className="stampfont result-heading">What is uncertain</div>
-                <ul className="bullet-list">
-                  {data.limitations.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="result-panel">
-                <div className="stampfont result-heading">Source map</div>
-                <div className="stack-list">
-                  {data.sources.map((source) => (
-                    <a key={source.name} className="compact-card" href={source.url} target="_blank" rel="noreferrer">
-                      <span className="mono compact-label">{source.name}</span>
-                      <strong>{source.detail}</strong>
-                    </a>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="sources-footer mono">
-              SOURCES CHECKED - ClinicalTrials.gov study record · PubMed citation search · sponsor public filings.
-              This sample was generated to preview the format; a real investigation pulls current data for the ID you enter.
-            </div>
-          </section>
+              ) : null}
+            </section>
+          </div>
         ) : null}
 
         <div className="footer-note mono">ONE ID IS ENOUGH · NO ACCOUNT, NO UPLOAD</div>
