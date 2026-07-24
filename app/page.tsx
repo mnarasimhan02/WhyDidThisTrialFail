@@ -87,7 +87,7 @@ type ApiState =
   | { status: "error"; message: string }
   | { status: "success"; data: InvestigationResponse };
 
-const EXAMPLES = ["NCT01234567", "NCT03163767", "NCT04280705"];
+const EXAMPLES = ["NCT00232128", "NCT03163767", "NCT04280705"];
 
 const TIERS = {
   fact: {
@@ -168,8 +168,6 @@ export default function Home() {
   const [showSources, setShowSources] = useState(false);
   const [showMethod, setShowMethod] = useState(false);
   const resultRef = useRef<HTMLDivElement | null>(null);
-
-  const exampleLabel = useMemo(() => EXAMPLES.join(" · "), []);
 
   async function runInvestigation() {
     const trimmed = nctId.trim().toUpperCase();
@@ -283,9 +281,6 @@ export default function Home() {
                 </div>
               </div>
 
-              <p className="supporting">
-                Example IDs to try: <span>{exampleLabel}</span>
-              </p>
             </div>
 
             <aside className="side-panel">
