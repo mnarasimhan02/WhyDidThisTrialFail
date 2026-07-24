@@ -148,8 +148,9 @@ button {
 
 .hero-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.12fr) minmax(320px, 0.88fr);
-  gap: 28px;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.82fr);
+  gap: 34px;
+  align-items: start;
 }
 
 .hero-copy {
@@ -163,10 +164,11 @@ h1.stampfont {
 }
 
 h1.stampfont {
-  font-size: clamp(2.9rem, 5.6vw, 4.9rem);
+  font-size: clamp(2.4rem, 4.6vw, 4.2rem);
   line-height: 0.98;
   color: var(--stamp);
   letter-spacing: -0.01em;
+  max-width: 6.6ch;
 }
 
 .lede {
@@ -520,6 +522,8 @@ h1.stampfont {
   border: 1px solid var(--line);
   border-radius: 6px;
   background: rgba(255, 252, 244, 0.5);
+  position: relative;
+  z-index: 1;
 }
 
 .side-head {
@@ -1078,6 +1082,10 @@ h1.stampfont {
   .feature-card {
     min-height: 0;
   }
+
+  h1.stampfont {
+    max-width: 100%;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1089,6 +1097,10 @@ h1.stampfont {
   .hero-card,
   .result-file {
     padding: 18px;
+  }
+
+  .hero-grid {
+    gap: 20px;
   }
 
   .search-row {
