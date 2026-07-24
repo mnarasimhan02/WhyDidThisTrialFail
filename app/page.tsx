@@ -87,7 +87,7 @@ type ApiState =
   | { status: "error"; message: string }
   | { status: "success"; data: InvestigationResponse };
 
-const EXAMPLES = ["NCT00232128", "NCT03163767", "NCT04280705"];
+const EXAMPLES = ["NCT00232128", "NCT03163767"];
 
 const TIERS = {
   fact: {
@@ -183,7 +183,7 @@ function sourceCount(data: InvestigationResponse) {
 }
 
 export default function Home() {
-  const [nctId, setNctId] = useState("");
+  const [nctId, setNctId] = useState(EXAMPLES[0]);
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState<string>("");
   const [shake, setShake] = useState(false);
