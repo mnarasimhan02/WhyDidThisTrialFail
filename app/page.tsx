@@ -198,7 +198,7 @@ export default function Home() {
     const trimmed = nctId.trim().toUpperCase();
     if (!/^NCT\d{8}$/.test(trimmed)) {
       setShake(true);
-      setError("Enter a valid NCT ID like NCT01234567.");
+      setError(`Enter a valid NCT ID like ${EXAMPLES[0]}.`);
       setStatus("error");
       setTimeout(() => setShake(false), 420);
       return;
@@ -280,7 +280,7 @@ export default function Home() {
                 <div className="search-row">
                   <input
                     className="nct-input"
-                    placeholder="NCT01234567"
+                    placeholder={EXAMPLES[0]}
                     value={nctId}
                     onChange={(event) => setNctId(event.target.value.toUpperCase())}
                     onKeyDown={(event) => {
