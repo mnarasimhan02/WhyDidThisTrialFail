@@ -384,7 +384,7 @@ export default function Home() {
                 <span>·</span>
                 <span>DATA AS OF {formatDate(data.sourceTimestamp) === "Not reported" ? STARTER_OVERVIEW.dataAsOf.toUpperCase() : formatDate(data.sourceTimestamp).toUpperCase()}</span>
               </div>
-              <h1 className="stampfont result-title">
+              <h1 className="result-title">
                 {data.overview.title || "Trial investigation"}
               </h1>
             </div>
