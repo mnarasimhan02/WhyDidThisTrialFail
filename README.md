@@ -2,7 +2,7 @@
 
 WhyDidThisTrialFail is a public-source trial investigation app.
 
-Paste one NCT ID and the app gathers registry data, publication context, and similar trial references to help explain why a program may have stalled or failed.
+Paste one NCT ID, or search by sponsor or trial title in the same box, and the app gathers registry data, publication context, and similar trial references to help explain why a program may have stalled or failed.
 
 ## Purpose
 
@@ -19,6 +19,7 @@ It answers:
 ## What the app does
 
 - Accepts a single NCT ID
+- Supports simple search by NCT ID, sponsor, or trial title
 - Pulls public trial data automatically
 - Searches PubMed for related publications
 - Surfaces similar or related trials
