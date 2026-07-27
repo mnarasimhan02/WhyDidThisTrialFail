@@ -53,16 +53,17 @@ button:hover { filter: brightness(1.04); }
 .hint { margin: 10px 0 0; color: var(--muted); }
 .search-tools { margin-top: 12px; display: grid; gap: 10px; }
 .tool-label { color: var(--muted); font-size: 0.88rem; text-transform: uppercase; letter-spacing: 0.1em; }
-.example-picker { display: flex; flex-wrap: wrap; gap: 10px; }
+.example-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
 .example-chip {
   min-width: 0;
-  padding: 10px 12px;
-  border-radius: 999px;
+  padding: 12px 14px;
+  border-radius: 18px;
   border: 1px solid rgba(255,255,255,0.14);
   background: rgba(255,255,255,0.05);
   color: var(--text);
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  text-align: left;
+  display: grid;
+  gap: 4px;
 }
 .example-chip:hover, .example-chip:focus-visible {
   background: rgba(130, 242, 196, 0.14);
@@ -70,6 +71,9 @@ button:hover { filter: brightness(1.04); }
   color: var(--accent);
   outline: none;
 }
+.chip-id { font-weight: 700; letter-spacing: 0.03em; font-size: 0.98rem; }
+.chip-meta { font-size: 0.82rem; color: var(--muted); }
+.chip-title { font-size: 0.9rem; line-height: 1.35; color: #dbe5f4; }
 .hint { margin: 12px 0 0; color: var(--muted); }
 .status-panel { margin-top: 20px; padding: 16px 18px; border-radius: 20px; display: flex; justify-content: space-between; gap: 20px; }
 .status { margin-top: 6px; font-size: 1rem; color: var(--text); }
@@ -99,5 +103,5 @@ button:hover { filter: brightness(1.04); }
 .list { margin: 0; padding-left: 18px; color: #d6def0; }
 .evidence small { display: block; color: var(--muted); margin-top: 6px; line-height: 1.5; }
 a { color: var(--accent-2); }
-@media (max-width: 900px) { .grid, .status-panel, .summary-top, .search-row { grid-template-columns: 1fr; display: grid; } .badge-group { justify-content: start; } .example-picker { gap: 8px; } }
+@media (max-width: 900px) { .grid, .status-panel, .summary-top, .search-row { grid-template-columns: 1fr; display: grid; } .badge-group { justify-content: start; } .example-picker { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .shell { width: min(100% - 22px, 1180px); padding-top: 22px; } h1 { font-size: clamp(2.5rem, 12vw, 4rem); } button { min-width: 100%; } }

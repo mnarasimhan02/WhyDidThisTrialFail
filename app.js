@@ -212,7 +212,13 @@ function renderExamplePicker(filterText = "") {
   const idsToShow = filtered.length ? filtered : exampleNctIds;
   examplePicker.innerHTML = idsToShow
     .map(
-      (id) => `<button type="button" class="example-chip" data-nctid="${escapeHtml(id)}">${escapeHtml(id)}</button>`,
+      (id) => {
+        const trial = trialDatabase[id];
+        const title = trial?.title ?? "Trial record";
+        const phase = trial?.phase ?? "Unknown phase";
+        const status = trial?.status ?? "Unknown status";
+        return `<button type="button" class="example-chip" data-nctid="${escapeHtml(id)}"><span class="chip-id">${escapeHtml(id)}</span><span class="chip-meta">${escapeHtml(phase)} · ${escapeHtml(status)}</span><span class="chip-title">${escapeHtml(title)}</span></button>`;
+      },
     )
     .join("");
   examplePicker.querySelectorAll(".example-chip").forEach((chip) => {
