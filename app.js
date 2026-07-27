@@ -203,7 +203,7 @@ const elements = {
 
 const escapeHtml = (value) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 function setStatus(message) { statusText.textContent = message; }
-const exampleNctIds = ["NCT00232128", "NCT00000419", "NCT04280705"];
+const exampleNctIds = Object.keys(trialDatabase).filter((key) => /^NCT\d{8}$/.test(key));
 
 function renderExamplePicker(filterText = "") {
   if (!examplePicker) return;
