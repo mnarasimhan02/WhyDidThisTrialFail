@@ -89,6 +89,27 @@ type ApiState =
 
 const EXAMPLES = ["NCT00232128", "NCT00000419", "NCT04280705"];
 
+const TRIALS = [
+  {
+    nctId: "NCT00232128",
+    title: "Protocol for Radiofrequency Ablation of Pulmonary Neoplasms",
+    sponsor: "Oncology Specialties, Alabama",
+    condition: "Pulmonary Neoplasms",
+  },
+  {
+    nctId: "NCT00000419",
+    title: "Adaptive COVID-19 Treatment Trial (ACTT)",
+    sponsor: "NIAID",
+    condition: "COVID-19",
+  },
+  {
+    nctId: "NCT04280705",
+    title: "Adaptive COVID-19 Treatment Trial 2 (ACTT-2)",
+    sponsor: "NIAID",
+    condition: "COVID-19",
+  },
+] as const;
+
 const TIERS = {
   fact: {
     label: "FACT",
@@ -203,6 +224,7 @@ function sourceCount(data: InvestigationResponse) {
 
 export default function Home() {
   const [nctId, setNctId] = useState(EXAMPLES[0]);
+  const [searchText, setSearchText] = useState(EXAMPLES[0]);
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState<string>("");
   const [shake, setShake] = useState(false);
@@ -213,16 +235,46 @@ export default function Home() {
   const [showMethod, setShowMethod] = useState(true);
   const resultRef = useRef<HTMLDivElement | null>(null);
 
+  const suggestions = useMemo(() => {
+    const query = searchText.trim().toLowerCase();
+    if (!query) return TRIALS;
+
+    return TRIALS.filter((trial) => {
+      return [trial.nctId, trial.title, trial.sponsor, trial.condition].some((value) =>
+        value.toLowerCase().includes(query),
+      );
+    });
+  }, [searchText]);
+
+  function resolveTrialId(value: string) {
+    const query = value.trim();
+    if (!query) return null;
+
+    const normalized = query.toUpperCase();
+    if (/^NCT\d{8}$/.test(normalized)) return normalized;
+
+    const matches = TRIALS.filter((trial) =>
+      [trial.nctId, trial.title, trial.sponsor, trial.condition].some((field) =>
+        field.toLowerCase().includes(query.toLowerCase()),
+      ),
+    );
+
+    return matches.length === 1 ? matches[0].nctId : null;
+  }
+
   async function runInvestigation() {
-    const trimmed = nctId.trim().toUpperCase();
+    const resolvedId = resolveTrialId(searchText) ?? resolveTrialId(nctId);
+    const trimmed = (resolvedId ?? searchText.trim()).toUpperCase();
     if (!/^NCT\d{8}$/.test(trimmed)) {
       setShake(true);
-      setError(`Enter a valid NCT ID like ${EXAMPLES[0]}.`);
+      setError(`Search by NCT ID, sponsor, or title. Try ${TRIALS[0].nctId}.`);
       setStatus("error");
       setTimeout(() => setShake(false), 420);
       return;
     }
 
+    setNctId(trimmed);
+    setSearchText(trimmed);
     setError("");
     setStatus("loading");
 
@@ -298,26 +350,62 @@ export default function Home() {
               <div className="search-row">
                 <input
                   className="nct-input"
-                  placeholder={EXAMPLES[0]}
-                  value={nctId}
-                  onChange={(event) => setNctId(event.target.value.toUpperCase())}
+                  placeholder="Search by NCT ID, sponsor, or trial title"
+                  value={searchText}
+                  onChange={(event) => setSearchText(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
                       event.preventDefault();
                       runInvestigation();
                     }
                   }}
-                  aria-label="NCT ID"
+                  aria-label="NCT search"
+                  list="trial-search-suggestions"
                 />
                 <button className="go-btn" onClick={runInvestigation} disabled={status === "loading"}>
                   {status === "loading" ? "INVESTIGATING..." : "INVESTIGATE"}
                 </button>
               </div>
 
+              <datalist id="trial-search-suggestions">
+                {TRIALS.map((trial) => (
+                  <option
+                    key={trial.nctId}
+                    value={trial.nctId}
+                    label={`${trial.sponsor} · ${trial.title}`}
+                  />
+                ))}
+              </datalist>
+
+              <div className="search-help">
+                {suggestions.slice(0, 4).map((trial) => (
+                  <button
+                    key={trial.nctId}
+                    type="button"
+                    className="chip"
+                    onClick={() => {
+                      setNctId(trial.nctId);
+                      setSearchText(trial.nctId);
+                      runInvestigation();
+                    }}
+                  >
+                    <span className="chip-top">{trial.nctId}</span>
+                    <span className="chip-bottom">{trial.sponsor} · {trial.title}</span>
+                  </button>
+                ))}
+              </div>
+
               <div className="examples">
                 <span className="mono examples-label">TRY:</span>
                 {EXAMPLES.map((id) => (
-                  <button key={id} className="chip" onClick={() => setNctId(id)}>
+                  <button
+                    key={id}
+                    className="chip"
+                    onClick={() => {
+                      setNctId(id);
+                      setSearchText(id);
+                    }}
+                  >
                     {id}
                   </button>
                 ))}
