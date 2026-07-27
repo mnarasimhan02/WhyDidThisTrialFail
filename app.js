@@ -186,6 +186,7 @@ const statusText = document.getElementById("statusText");
 const results = document.getElementById("results");
 const investigateBtn = document.getElementById("investigateBtn");
 const nctInput = document.getElementById("nctInput");
+const examplePicker = document.getElementById("examplePicker");
 
 const elements = {
   trialTitle: document.getElementById("trialTitle"),
@@ -203,6 +204,24 @@ const elements = {
 const escapeHtml = (value) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 function setStatus(message) { statusText.textContent = message; }
 const exampleNctIds = ["NCT00232128", "NCT00000419", "NCT04280705"];
+
+function renderExamplePicker(filterText = "") {
+  if (!examplePicker) return;
+  const query = filterText.trim().toUpperCase();
+  const filtered = exampleNctIds.filter((id) => id.includes(query));
+  const idsToShow = filtered.length ? filtered : exampleNctIds;
+  examplePicker.innerHTML = idsToShow
+    .map(
+      (id) => `<button type="button" class="example-chip" data-nctid="${escapeHtml(id)}">${escapeHtml(id)}</button>`,
+    )
+    .join("");
+  examplePicker.querySelectorAll(".example-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      nctInput.value = chip.getAttribute("data-nctid") || "";
+      investigate();
+    });
+  });
+}
 
 function renderTrial(trial, nctId) {
   results.classList.remove("hidden");
@@ -250,11 +269,9 @@ function investigate() {
 }
 
 investigateBtn.addEventListener("click", investigate);
+nctInput.addEventListener("input", () => renderExamplePicker(nctInput.value));
 nctInput.addEventListener("keydown", (event) => { if (event.key === "Enter") investigate(); });
 
-const exampleHint = document.querySelector(".hint");
-if (exampleHint) {
-  exampleHint.innerHTML = `Try ${exampleNctIds.map((id) => `<span>${escapeHtml(id)}</span>`).join(" or ")}.`;
-}
+renderExamplePicker(nctInput.value);
 
 renderTrial(trialDatabase.NCT01234567, "NCT01234567");
