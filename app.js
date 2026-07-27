@@ -203,6 +203,8 @@ const elements = {
 
 const escapeHtml = (value) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 function setStatus(message) { statusText.textContent = message; }
+const exampleNctIds = ["NCT00232128", "NCT00000419", "NCT04280705"];
+
 function renderTrial(trial, nctId) {
   results.classList.remove("hidden");
   elements.trialTitle.textContent = `${trial.title} (${nctId})`;
@@ -232,7 +234,7 @@ function renderTrial(trial, nctId) {
 function investigate() {
   const nctId = nctInput.value.trim().toUpperCase();
   if (!/^NCT\d{8}$/.test(nctId)) {
-    setStatus("Enter a valid NCT ID format like NCT01234567.");
+    setStatus(`Enter a valid NCT ID format like ${exampleNctIds[0]}.`);
     results.classList.add("hidden");
     return;
   }
@@ -250,4 +252,10 @@ function investigate() {
 
 investigateBtn.addEventListener("click", investigate);
 nctInput.addEventListener("keydown", (event) => { if (event.key === "Enter") investigate(); });
+
+const exampleHint = document.querySelector(".hint");
+if (exampleHint) {
+  exampleHint.innerHTML = `Try ${exampleNctIds.map((id) => `<span>${escapeHtml(id)}</span>`).join(" or ")}.`;
+}
+
 renderTrial(trialDatabase.NCT01234567, "NCT01234567");

@@ -87,7 +87,7 @@ type ApiState =
   | { status: "error"; message: string }
   | { status: "success"; data: InvestigationResponse };
 
-const EXAMPLES = ["NCT00232128", "NCT03163767"];
+const EXAMPLES = ["NCT00232128", "NCT00000419", "NCT04280705"];
 
 const TIERS = {
   fact: {

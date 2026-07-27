@@ -89,11 +89,13 @@ The app also uses trial-record context to:
 
 ## Good examples to try
 
-- `NCT01234567`
-- `NCT03163767`
+These IDs resolve to real ClinicalTrials.gov records and were tested against the public registry during development:
+
+- `NCT00232128`
+- `NCT00000419`
 - `NCT04280705`
 
-These IDs are useful demo starting points because they show the app flow, hypothesis ranking, and evidence cards.
+They are useful starting points because they exercise the app flow, hypothesis ranking, and evidence cards without relying on placeholder IDs.
 
 ## What you will see
 
