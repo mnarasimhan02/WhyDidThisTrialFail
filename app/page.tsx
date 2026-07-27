@@ -492,7 +492,7 @@ export default function Home() {
                               <div key={`${hypothesis.id}-${evidenceIndex}`} className="evidence-row">
                                 <Tag kind={evidenceIndex === 0 ? "fact" : "inference"} />
                                 <div className="evidence-copy">
-                                  <div className="evidence-source">{item.source}</div>
+                                  <div className="evidence-source">{item.sourceType}</div>
                                   <div className="evidence-text">{item.claim}</div>
                                 </div>
                               </div>
