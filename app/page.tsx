@@ -172,6 +172,25 @@ function ConfBadge({ level }: { level: "high" | "medium" | "low" }) {
   );
 }
 
+function Tag({ kind }: { kind: "fact" | "inference" | "hypothesis" }) {
+  const tier = TIERS[kind];
+
+  return (
+    <span
+      className="mono inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+      style={{
+        color: tier.color,
+        background: tier.bg,
+        fontSize: 11,
+        fontWeight: 600,
+        letterSpacing: "0.04em",
+      }}
+    >
+      {tier.label}
+    </span>
+  );
+}
+
 function confTone(level: "high" | "medium" | "low" | "unknown") {
   if (level === "high") return "high";
   if (level === "medium") return "medium";
