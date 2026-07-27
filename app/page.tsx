@@ -208,9 +208,9 @@ export default function Home() {
   const [shake, setShake] = useState(false);
   const [data, setData] = useState<InvestigationResponse | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [showOverview, setShowOverview] = useState(false);
-  const [showSources, setShowSources] = useState(false);
-  const [showMethod, setShowMethod] = useState(false);
+  const [showOverview, setShowOverview] = useState(true);
+  const [showSources, setShowSources] = useState(true);
+  const [showMethod, setShowMethod] = useState(true);
   const resultRef = useRef<HTMLDivElement | null>(null);
 
   async function runInvestigation() {
@@ -248,9 +248,9 @@ export default function Home() {
           {},
         ),
       );
-      setShowOverview(false);
-      setShowSources(false);
-      setShowMethod(false);
+      setShowOverview(true);
+      setShowSources(true);
+      setShowMethod(true);
       setStatus("done");
       window.setTimeout(() => {
         resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -406,9 +406,9 @@ export default function Home() {
 
             <section className="folder grain result-panel-shell">
               <button className="row-btn" onClick={() => setShowMethod((s) => !s)}>
-                {showMethod ? "▾" : "▸"} [HYPOTHESES]
-              </button>
-              <div className="section-subcopy">Ordered by evidence quality, not certainty.</div>
+              {showMethod ? "▾" : "▸"} [HYPOTHESES]
+            </button>
+            <div className="section-subcopy">Ordered by evidence quality, not certainty.</div>
               {showMethod && (
                 <div className="hypothesis-stack">
                   {data.hypotheses.map((hypothesis, index) => {
