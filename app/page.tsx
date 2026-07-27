@@ -286,84 +286,43 @@ export default function Home() {
         </div>
 
         <section className="folder grain hero-card">
-          <div className="hero-grid">
-            <div className="hero-copy">
-              <h1 className="stampfont">WhyDidThisTrialFail</h1>
-              <p className="lede">
-                Paste one NCT ID and get a source-backed investigation of the public
-                record: the most plausible failure hypotheses, and the evidence
-                behind each one.
-              </p>
+          <div className="hero-copy">
+            <h1 className="stampfont">WhyDidThisTrialFail</h1>
+            <p className="lede">
+              Paste one NCT ID and get a source-backed investigation of the public
+              record: the most plausible failure hypotheses, and the evidence
+              behind each one.
+            </p>
 
-              <div className={`search-shell ${shake ? "shake" : ""}`}>
-                <div className="search-row">
-                  <input
-                    className="nct-input"
-                    placeholder={EXAMPLES[0]}
-                    value={nctId}
-                    onChange={(event) => setNctId(event.target.value.toUpperCase())}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        runInvestigation();
-                      }
-                    }}
-                    aria-label="NCT ID"
-                  />
-                  <button className="go-btn" onClick={runInvestigation} disabled={status === "loading"}>
-                    {status === "loading" ? "INVESTIGATING..." : "INVESTIGATE"}
+            <div className={`search-shell ${shake ? "shake" : ""}`}>
+              <div className="search-row">
+                <input
+                  className="nct-input"
+                  placeholder={EXAMPLES[0]}
+                  value={nctId}
+                  onChange={(event) => setNctId(event.target.value.toUpperCase())}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      runInvestigation();
+                    }
+                  }}
+                  aria-label="NCT ID"
+                />
+                <button className="go-btn" onClick={runInvestigation} disabled={status === "loading"}>
+                  {status === "loading" ? "INVESTIGATING..." : "INVESTIGATE"}
+                </button>
+              </div>
+
+              <div className="examples">
+                <span className="mono examples-label">TRY:</span>
+                {EXAMPLES.map((id) => (
+                  <button key={id} className="chip" onClick={() => setNctId(id)}>
+                    {id}
                   </button>
-                </div>
-
-                <div className="examples">
-                  <span className="mono examples-label">TRY:</span>
-                  {EXAMPLES.map((id) => (
-                    <button key={id} className="chip" onClick={() => setNctId(id)}>
-                      {id}
-                    </button>
-                  ))}
-                </div>
+                ))}
               </div>
-
             </div>
-
-            <aside className="side-panel">
-              <div className="side-head">
-                <div>
-                  <div className="eyebrow">Start investigation</div>
-                  <h2>Enter one trial ID</h2>
-                </div>
-                <div className={`badge ${status === "loading" ? "badge-warm" : "badge-cool"}`}>
-                  {status === "loading" ? "Investigating" : "Ready"}
-                </div>
-              </div>
-              <p className="side-copy">
-                The app checks ClinicalTrials.gov, PubMed, and registry-derived trial
-                context automatically.
-              </p>
-
-              <div className="evidence-strip">
-                <div className="evidence-pill">ClinicalTrials.gov</div>
-                <div className="evidence-pill">PubMed</div>
-                <div className="evidence-pill">Registry context</div>
-              </div>
-
-              <div className="tier-legend">
-                <div className="mono legend-label">
-                  GUARDRAIL - every line is tagged, never blended
-                </div>
-                <div className="tier-row">
-                  {Object.entries(TIERS).map(([key, tier], index) => (
-                    <div key={key} className="tier-item">
-                      <span className="stamp-badge stampfont" style={tierStyle(key as keyof typeof TIERS, index)}>
-                        {tier.label}
-                      </span>
-                      <span className="tier-desc">{tier.desc}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </aside>
           </div>
         </section>
 
