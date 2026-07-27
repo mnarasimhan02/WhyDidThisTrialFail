@@ -1,12 +1,12 @@
 const trialDatabase = {
   NCT01234567: {
-    title: "A Study of Targeted Therapy in Advanced Solid Tumors",
+    title: "Public-source demo case: broad-enrollment solid tumor program",
     phase: "Phase II",
     status: "Completed",
     condition: ["NSCLC", "gastric cancer"],
-    intervention: ["Targeted therapy X"],
-    sponsor: "Example Biotech",
-    targetOrPathway: "Pathway Y",
+    intervention: ["Targeted therapy"],
+    sponsor: "Sponsor not shown in demo",
+    targetOrPathway: "Pathway not specified in demo",
     primaryEndpoint: "Objective response rate",
     startDate: "2018-04-10",
     completionDate: "2021-09-18",
@@ -49,9 +49,9 @@ const trialDatabase = {
         evidence: [
           {
             sourceType: "other",
-            citation: "Public sponsor materials framed the drug as pathway-focused, but not as a validated standard of care.",
-            claim: "The mechanism looks plausible but not fully de-risked.",
-            url: "https://www.google.com/search?q=public+sponsor+materials+example",
+            citation: "The demo layer does not surface sponsor materials.",
+            claim: "The mechanism is not fully described in the embedded case.",
+            url: "https://clinicaltrials.gov/",
           },
         ],
         counterevidence: [
@@ -81,10 +81,9 @@ const trialDatabase = {
     ],
     relatedTrials: [
       { nctId: "NCT03163767", similarityReason: "Same pathway, similar disease area, later-phase design", result: "More selective enrollment and clearer biomarker stratification", url: "https://clinicaltrials.gov/" },
-      { nctId: "NCT04567890", similarityReason: "Same class, different combination strategy", result: "Observed stronger activity in a narrower population", url: "https://clinicaltrials.gov/" },
     ],
     limitations: [
-      "No full protocol text is available in this demo.",
+      "This embedded case is illustrative, not sourced from a live trial API.",
       "Failure hypotheses are evidence-ranked, not causal proof.",
       "Public abstracts may lag behind the actual trial execution details.",
     ],
@@ -95,13 +94,13 @@ const trialDatabase = {
     ],
   },
   NCT03163767: {
-    title: "Biomarker-Defined Therapy in Metastatic Cancer",
+    title: "Public-source demo case: biomarker-defined metastatic program",
     phase: "Phase III",
     status: "Terminated",
     condition: ["Metastatic cancer"],
-    intervention: ["Combination therapy Z"],
-    sponsor: "Example Pharma",
-    targetOrPathway: "Receptor Q",
+    intervention: ["Combination therapy"],
+    sponsor: "Sponsor not shown in demo",
+    targetOrPathway: "Receptor not specified in demo",
     primaryEndpoint: "Progression-free survival",
     startDate: "2019-02-14",
     completionDate: "2022-03-03",
@@ -152,7 +151,7 @@ const trialDatabase = {
       { nctId: "NCT05500011", similarityReason: "Same receptor class, newer biomarker enrichment logic", result: "Still recruiting", url: "https://clinicaltrials.gov/" },
     ],
     limitations: [
-      "This demo uses a small embedded library of illustrative cases.",
+      "This embedded case is illustrative, not sourced from a live trial API.",
       "Only public-source logic is simulated here.",
       "The tool should never be read as proving why a program failed.",
     ],
@@ -174,7 +173,7 @@ const fallbackTrial = (nctId) => ({
   primaryEndpoint: "Unknown",
   startDate: "Unknown",
   completionDate: "Unknown",
-  bottomLine: "I could not find a curated case for this NCT ID in the demo library. In a production build, the app would query ClinicalTrials.gov, PubMed, and sponsor sources before generating hypotheses.",
+  bottomLine: "I could not find a curated case for this NCT ID in the embedded demo. In production, the app would query ClinicalTrials.gov, PubMed, and sponsor sources before generating hypotheses.",
   failureLikelihood: "unknown",
   timeline: [{ date: "Unknown", event: "No cached public-source case found", source: "Demo engine", url: "#" }],
   hypotheses: [{ id: "H1", label: "Insufficient public evidence", confidence: "low", statement: "This demo cannot infer a failure story without actual source retrieval. A production version should search public APIs before generating hypotheses.", whyItMatters: "Unsupported explanations are worse than no explanation.", evidence: [], counterevidence: [] }],

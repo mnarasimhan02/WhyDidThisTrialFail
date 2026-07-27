@@ -108,6 +108,8 @@ Depending on the NCT ID, the app may return:
 - PubMed-linked publication context
 - a conservative bottom line when the public trail is thin
 
+The embedded demo cases are illustrative placeholders for the UI flow. The app is meant to be paired with live public-source retrieval in production.
+
 ## Local development
 
 ```bash
