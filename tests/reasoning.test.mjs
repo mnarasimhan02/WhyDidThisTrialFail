@@ -53,6 +53,20 @@ test("recognizes a published lack-of-efficacy result", () => {
   );
 });
 
+test("recognizes did-not-reduce efficacy language", () => {
+  assert.equal(
+    reasoningTestApi.classifyPrimaryReason("The treatment did not reduce cognitive or functional decline."),
+    "efficacy",
+  );
+});
+
+test("recognizes paired-trial negative endpoint language", () => {
+  assert.equal(
+    reasoningTestApi.classifyPrimaryReason("Neither dose resulted in significantly slower clinical decline than placebo."),
+    "primary endpoint",
+  );
+});
+
 test("does not route a bare FDA mention as a regulatory cause", () => {
   assert.notEqual(
     reasoningTestApi.classifyPrimaryReason("The outcome measure was reviewed in an FDA guidance document."),
