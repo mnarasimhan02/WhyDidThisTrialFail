@@ -403,7 +403,7 @@ function retrieveCtis(trial: ReturnType<typeof normalizeTrial>) {
 
 const CATEGORY_TERMS: Record<FailureCategory, string[]> = {
   safety: ["safety concern", "safety signal", "toxicity", "adverse event", "serious adverse", "death", "dsmb", "benefit-risk", "liver enzyme", "hepatotoxic"],
-  efficacy: ["lack of efficacy", "futility", "insufficient efficacy", "no clinical benefit", "no reduction in", "did not improve", "no treatment benefit"],
+  efficacy: ["lack of efficacy", "futility", "insufficient efficacy", "no clinical benefit", "no reduction in", "did not reduce", "did not improve", "no treatment benefit"],
   "primary endpoint": ["primary endpoint", "did not meet", "failed to meet", "p-value", "hazard ratio"],
   enrollment: ["unable to recruit", "poor recruitment", "slow enrollment", "low accrual", "enrollment shortfall", "recruitment target"],
   operational: ["operational", "site closure", "logistics", "data quality", "protocol deviation"],
@@ -484,7 +484,7 @@ function classifyText(value: string): FailureCategory[] {
   const categories = (Object.entries(CATEGORY_TERMS) as Array<[FailureCategory, string[]]>)
     .filter(([category, terms]) => !["unknown", "not a failure"].includes(category) && has(value, terms))
     .map(([category]) => category);
-  const negativeEndpoint = has(value, ["did not meet", "failed to meet", "did not result in", "not associated with slower", "no significant difference", "futility", "unlikely to meet"]);
+  const negativeEndpoint = has(value, ["did not meet", "failed to meet", "did not result in", "neither", "not associated with slower", "no significant difference", "futility", "unlikely to meet"]);
   const endpointContext = has(value, ["primary endpoint", "primary end point", "primary outcome", "clinical decline"]);
   if (negativeEndpoint && endpointContext && !categories.includes("primary endpoint")) categories.push("primary endpoint");
   return categories;
@@ -553,7 +553,10 @@ function buildClaims(input: {
   }
   for (const publication of publications) {
     const corpus = `${publication.title} ${publication.abstract ?? ""}`;
-    const categories = classifyText(corpus);
+    const categories = classifyText(corpus).filter((category) => {
+      if (!["regulatory", "CMC/manufacturing", "funding", "commercial strategy", "portfolio prioritization", "partner decision", "operational"].includes(category)) return true;
+      return has(corpus, ["terminated because", "terminated due", "stopped because", "stopped due", "discontinued because", "discontinued due", "clinical hold"]);
+    });
     const contextualOutcomeMatch = Boolean(publication.matchedByContext)
       && trial.assets.some((asset) => has(corpus, [asset]))
       && /\b(trial|study)\b/i.test(corpus)
