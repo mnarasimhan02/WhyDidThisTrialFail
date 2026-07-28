@@ -181,3 +181,12 @@ test("verified GENERATION HD1 evidence records benefit-risk without inventing sa
   assert.equal(evidence.documentedCause, true);
   assert.match(evidence.claim, /no new safety signals/i);
 });
+
+test("verified MYSTIC evidence preserves negative endpoints despite ongoing follow-up", () => {
+  const [evidence] = reasoningTestApi.verifiedEvidenceForTrial("NCT02453282");
+  assert.equal(evidence.category, "primary endpoint");
+  assert.equal(evidence.documentedCause, false);
+  assert.match(evidence.claim, /did not meet its primary endpoints/i);
+  assert.match(evidence.claim, /overall survival/i);
+  assert.match(evidence.claim, /progression-free survival/i);
+});
