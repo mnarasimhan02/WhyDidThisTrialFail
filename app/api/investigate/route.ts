@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from "next/server.js";
 
 type Json = Record<string, any>;
 
@@ -72,6 +72,14 @@ type Candidate = {
   contradictions: Claim[];
   expectedEvidence: Array<{ test: string; status: "found" | "not found"; note: string }>;
   score: number;
+  sourcePriority?: number;
+};
+
+type RoutedCategory = {
+  category: FailureCategory;
+  sourceId: string;
+  sourcePriority: number;
+  documented: boolean;
 };
 
 function list(value: unknown): string[] {
@@ -151,6 +159,25 @@ function sourceFingerprint(value: string) {
     .replace(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .trim().split(" ").filter((word) => word.length > 3).slice(0, 18).sort().join("-");
+}
+
+function matchingPassages(value: string, entityTerms: string[], radius = 700) {
+  const normalizedTerms = entityTerms.map((term) => term.trim()).filter((term) => term.length > 2);
+  const lower = value.toLowerCase();
+  const passages: string[] = [];
+  for (const term of normalizedTerms) {
+    let cursor = 0;
+    const needle = term.toLowerCase();
+    while (cursor < lower.length) {
+      const index = lower.indexOf(needle, cursor);
+      if (index < 0) break;
+      passages.push(value.slice(Math.max(0, index - radius), Math.min(value.length, index + needle.length + radius)));
+      cursor = index + needle.length;
+      if (passages.length >= 12) break;
+    }
+    if (passages.length >= 12) break;
+  }
+  return [...new Set(passages.map((passage) => passage.replace(/\s+/g, " ").trim()))];
 }
 
 function assetNames(study: Json) {
@@ -321,7 +348,8 @@ async function retrieveSec(trial: ReturnType<typeof normalizeTrial>) {
     const accession = filing.accession.replace(/-/g, "");
     const url = `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${accession}/${filing.document}`;
     const filingText = cleanMarkup(await getText(url)).slice(0, 1_500_000);
-    if (terms.some((term) => filingText.toLowerCase().includes(term.toLowerCase()))) matched.push({ ...filing, url, excerpt: filingText });
+    const passages = matchingPassages(filingText, terms);
+    if (passages.length) matched.push({ ...filing, url, excerpt: passages.join("\n\n") });
   }
   return {
     source: { ...notFound, url: `https://www.sec.gov/edgar/browse/?CIK=${cik}`, detail: matched.length ? `${matched.length} sponsor filing(s) mention the trial or asset.` : "Sponsor mapped to EDGAR; no recent filing mention was found.", availability: "retrieved" as const },
@@ -355,7 +383,7 @@ const CATEGORY_TERMS: Record<FailureCategory, string[]> = {
   safety: ["safety", "toxicity", "adverse event", "serious adverse", "death", "dsmb", "benefit-risk", "liver enzyme", "hepatotoxic"],
   efficacy: ["lack of efficacy", "futility", "insufficient efficacy", "no clinical benefit"],
   "primary endpoint": ["primary endpoint", "did not meet", "failed to meet", "p-value", "hazard ratio"],
-  enrollment: ["enrollment", "recruitment", "accrual", "unable to recruit"],
+  enrollment: ["unable to recruit", "poor recruitment", "slow enrollment", "low accrual", "enrollment shortfall", "recruitment target"],
   operational: ["operational", "site closure", "logistics", "data quality", "protocol deviation"],
   "protocol design": ["protocol design", "endpoint changed", "eligibility amended", "design limitation"],
   regulatory: ["fda", "ema", "clinical hold", "complete response letter", "inspection", "regulatory"],
@@ -368,10 +396,83 @@ const CATEGORY_TERMS: Record<FailureCategory, string[]> = {
   "not a failure": [],
 };
 
+const EXPECTED_EVIDENCE: Record<FailureCategory, Array<{ test: string; terms: string[] }>> = {
+  safety: [
+    { test: "registry stop reason or sponsor safety statement", terms: ["why stopped", "safety", "benefit-risk", "toxicity"] },
+    { test: "adverse-event, DSMB, hold, or death evidence", terms: ["adverse event", "serious adverse", "dsmb", "clinical hold", "death", "liver enzyme", "hepatotoxic"] },
+  ],
+  efficacy: [
+    { test: "sponsor efficacy or futility statement", terms: ["lack of efficacy", "futility", "no clinical benefit", "insufficient efficacy"] },
+    { test: "reported efficacy result", terms: ["objective response", "progression-free", "overall survival", "hazard ratio", "p-value"] },
+  ],
+  "primary endpoint": [
+    { test: "explicit primary-endpoint result", terms: ["primary endpoint", "primary end point", "did not meet", "failed to meet"] },
+    { test: "effect estimate or statistical result", terms: ["hazard ratio", "confidence interval", "p-value", "p =", "odds ratio"] },
+  ],
+  enrollment: [
+    { test: "explicit accrual or recruitment statement", terms: ["unable to recruit", "poor recruitment", "slow enrollment", "low accrual"] },
+    { test: "enrollment target revision or shortfall", terms: ["enrollment target", "accrual target", "enrollment shortfall", "recruitment target"] },
+  ],
+  operational: [
+    { test: "explicit execution or site statement", terms: ["site closure", "operational", "logistics", "data quality"] },
+    { test: "registry amendment consistent with the issue", terms: ["protocol deviation", "site terminated", "study logistics"] },
+  ],
+  "protocol design": [
+    { test: "documented design limitation", terms: ["design limitation", "underpowered", "protocol design"] },
+    { test: "material outcome or eligibility amendment", terms: ["endpoint changed", "eligibility amended", "primary outcome changed"] },
+  ],
+  regulatory: [
+    { test: "FDA, EMA, or sponsor regulatory statement", terms: ["fda", "ema", "regulatory authority", "regulatory action"] },
+    { test: "hold, CRL, inspection, or formal action", terms: ["clinical hold", "complete response letter", "inspection finding", "warning letter"] },
+  ],
+  "CMC/manufacturing": [
+    { test: "sponsor or regulator manufacturing statement", terms: ["manufacturing", "cmc", "quality control"] },
+    { test: "batch, quality, stability, or supply evidence", terms: ["batch", "stability", "impurity", "supply interruption", "product quality"] },
+  ],
+  funding: [
+    { test: "SEC or sponsor financing statement", terms: ["funding", "financing", "cash runway"] },
+    { test: "program-specific budget or runway evidence", terms: ["budget", "runway", "cost reduction"] },
+  ],
+  "commercial strategy": [
+    { test: "sponsor commercial-strategy statement", terms: ["commercial strategy", "strategic alternative"] },
+    { test: "asset-specific market rationale", terms: ["market opportunity", "commercial opportunity"] },
+  ],
+  "portfolio prioritization": [
+    { test: "sponsor portfolio statement", terms: ["portfolio priorit", "pipeline priorit", "repriorit"] },
+    { test: "asset-specific discontinuation or deprioritization", terms: ["discontinued development", "deprioritized", "will not advance"] },
+  ],
+  "partner decision": [
+    { test: "partner or sponsor termination statement", terms: ["partner termination", "collaboration terminated"] },
+    { test: "asset-specific rights or collaboration change", terms: ["returned rights", "license terminated", "opted out"] },
+  ],
+  unknown: [{ test: "trial-specific documented reason", terms: [] }],
+  "not a failure": [{ test: "active or successfully completed status", terms: ["recruiting", "active, not recruiting", "completed"] }],
+};
+
+const CONTRADICTION_TERMS: Partial<Record<FailureCategory, string[]>> = {
+  safety: ["well tolerated", "no new safety signal", "no safety concerns", "acceptable safety profile"],
+  efficacy: ["demonstrated efficacy", "clinically meaningful benefit", "statistically significant improvement"],
+  "primary endpoint": ["met the primary endpoint", "achieved the primary endpoint", "primary endpoint was met"],
+  enrollment: ["fully enrolled", "completed enrollment", "enrollment target was met"],
+  regulatory: ["hold lifted", "regulatory clearance", "approved by the fda"],
+  "CMC/manufacturing": ["manufacturing issue resolved", "supply restored", "released all batches"],
+};
+
 function classifyText(value: string): FailureCategory[] {
   return (Object.entries(CATEGORY_TERMS) as Array<[FailureCategory, string[]]>)
     .filter(([category, terms]) => !["unknown", "not a failure"].includes(category) && has(value, terms))
     .map(([category]) => category);
+}
+
+function classifyPrimaryReason(value: string): FailureCategory | null {
+  const categories = classifyText(value);
+  if (!categories.length) return null;
+  const precedence: FailureCategory[] = [
+    "safety", "primary endpoint", "efficacy", "regulatory", "CMC/manufacturing",
+    "enrollment", "operational", "protocol design", "funding", "partner decision",
+    "portfolio prioritization", "commercial strategy",
+  ];
+  return precedence.find((category) => categories.includes(category)) ?? categories[0];
 }
 
 function strength(score: number, documented: boolean): EvidenceStrength {
@@ -384,26 +485,10 @@ function strength(score: number, documented: boolean): EvidenceStrength {
 }
 
 function expectedTests(category: FailureCategory, corpus: string) {
-  const tests: Record<FailureCategory, string[]> = {
-    safety: ["registry stop reason or sponsor safety statement", "adverse-event, DSMB, hold, or death evidence"],
-    efficacy: ["sponsor efficacy or futility statement", "reported efficacy result"],
-    "primary endpoint": ["explicit primary-endpoint result", "effect estimate or statistical result"],
-    enrollment: ["explicit accrual or recruitment statement", "enrollment target revision or shortfall"],
-    operational: ["explicit execution or site statement", "registry amendment consistent with the issue"],
-    "protocol design": ["documented design limitation", "material outcome or eligibility amendment"],
-    regulatory: ["FDA, EMA, or sponsor regulatory statement", "hold, CRL, inspection, or formal action"],
-    "CMC/manufacturing": ["sponsor or regulator manufacturing statement", "batch, quality, stability, or supply evidence"],
-    funding: ["SEC or sponsor financing statement", "program-specific budget or runway evidence"],
-    "commercial strategy": ["sponsor commercial-strategy statement", "asset-specific market rationale"],
-    "portfolio prioritization": ["sponsor portfolio statement", "asset-specific discontinuation or deprioritization"],
-    "partner decision": ["partner or sponsor termination statement", "asset-specific rights or collaboration change"],
-    unknown: ["trial-specific documented reason"],
-    "not a failure": ["active or successfully completed status"],
-  };
-  return tests[category].map((test) => ({
+  return EXPECTED_EVIDENCE[category].map(({ test, terms }) => ({
     test,
-    status: has(corpus, CATEGORY_TERMS[category]) ? "found" as const : "not found" as const,
-    note: has(corpus, CATEGORY_TERMS[category]) ? "A matching trial/program-specific signal was retrieved." : "Not found in the retrieved public sources; this is not proof that it does not exist.",
+    status: has(corpus, terms) ? "found" as const : "not found" as const,
+    note: has(corpus, terms) ? "The retrieved trial/program-specific passage contains this signal." : "Not found in the retrieved public sources; this is not proof that it does not exist.",
   }));
 }
 
@@ -414,12 +499,24 @@ function buildClaims(input: {
   const { trial, publications, history, sec, fda } = input;
   const claims: Claim[] = [];
   const add = (partial: Omit<Claim, "id">) => claims.push({ id: `claim-${claims.length + 1}`, ...partial });
+  const addContradictions = (corpus: string, sourceId: string, authority: number, specificity: number, entityIds: string[]) => {
+    for (const [category, terms] of Object.entries(CONTRADICTION_TERMS) as Array<[FailureCategory, string[]]>) {
+      if (!has(corpus, terms)) continue;
+      add({
+        text: `The source reports a potentially contradictory signal: “${terms.find((term) => has(corpus, [term]))}”.`,
+        kind: "observation", relation: "contradiction", category, sourceId,
+        sourceAuthority: authority, directness: 2, trialSpecificity: specificity, temporalRelevance: 1, entityIds,
+      });
+    }
+  };
   if (trial.whyStopped) {
-    for (const category of classifyText(trial.whyStopped)) add({
+    const category = classifyPrimaryReason(trial.whyStopped);
+    if (category) add({
       text: `ClinicalTrials.gov states: “${trial.whyStopped}”`, kind: "documented cause", relation: "direct support", category,
       sourceId: "ctg-current", sourceAuthority: 3, directness: 3, trialSpecificity: 3, temporalRelevance: 2,
       entityIds: ["trial", "asset", "sponsor"],
     });
+    addContradictions(trial.whyStopped, "ctg-current", 3, 3, ["trial"]);
   }
   for (const change of history.comparison) {
     const categories = classifyText(change.change);
@@ -430,12 +527,14 @@ function buildClaims(input: {
   }
   for (const publication of publications) {
     const corpus = `${publication.title} ${publication.abstract ?? ""}`;
+    const explicitTrialMatch = has(corpus, [trial.nctId, trial.acronym ?? ""]);
     for (const category of classifyText(corpus)) add({
       text: publication.abstract?.slice(0, 360) || publication.title, kind: "observation", relation: "indirect support", category,
-      sourceId: `pubmed-${publication.pmid}`, sourceAuthority: 2, directness: has(corpus, [trial.nctId, trial.acronym ?? ""]) ? 2 : 1,
-      trialSpecificity: has(corpus, [trial.nctId, trial.title, trial.acronym ?? ""]) ? 3 : trial.assets.some((asset) => has(corpus, [asset])) ? 2 : 1,
+      sourceId: `pubmed-${publication.pmid}`, sourceAuthority: 2, directness: explicitTrialMatch ? 2 : 1,
+      trialSpecificity: explicitTrialMatch ? 3 : trial.assets.some((asset) => has(corpus, [asset])) ? 2 : 1,
       temporalRelevance: 1, entityIds: ["trial", "asset"],
     });
+    addContradictions(corpus, `pubmed-${publication.pmid}`, 2, explicitTrialMatch ? 3 : 2, ["trial", "asset"]);
   }
   for (const filing of sec.documents) {
     const excerpt = filing.excerpt ?? "";
@@ -445,6 +544,7 @@ function buildClaims(input: {
       sourceAuthority: 3, directness: 2, trialSpecificity: has(excerpt, [trial.nctId, trial.acronym ?? ""]) ? 3 : 2,
       temporalRelevance: 2, entityIds: ["program", "asset", "sponsor"],
     });
+    addContradictions(excerpt, `sec-${filing.accession}`, 3, has(excerpt, [trial.nctId, trial.acronym ?? ""]) ? 3 : 2, ["program", "asset", "sponsor"]);
   }
   for (const record of fda.records) {
     const corpus = text([record.boxed_warning, record.warnings, record.adverse_reactions, record.recent_major_changes]);
@@ -457,6 +557,34 @@ function buildClaims(input: {
   return claims;
 }
 
+function sourcePriority(sourceId: string, sources: Source[]) {
+  if (sourceId === "ctg-current") return 1;
+  if (sourceId === "ctg-history") return 2;
+  const sourceType = sources.find((source) => source.id === sourceId)?.sourceType;
+  if (sourceType === "sec") return 3;
+  if (sourceType === "fda" || sourceType === "ctis") return 4;
+  if (sourceType === "publication") return 5;
+  return 6;
+}
+
+function routeCategory(category: FailureCategory, support: Claim[], sources: Source[]): RoutedCategory | null {
+  const ranked = [...support].sort((a, b) => {
+    const documentedDelta = Number(b.kind === "documented cause") - Number(a.kind === "documented cause");
+    if (documentedDelta) return documentedDelta;
+    const priorityDelta = sourcePriority(a.sourceId, sources) - sourcePriority(b.sourceId, sources);
+    if (priorityDelta) return priorityDelta;
+    return (b.directness + b.trialSpecificity) - (a.directness + a.trialSpecificity);
+  });
+  const lead = ranked[0];
+  if (!lead) return null;
+  return {
+    category,
+    sourceId: lead.sourceId,
+    sourcePriority: sourcePriority(lead.sourceId, sources),
+    documented: lead.kind === "documented cause",
+  };
+}
+
 function evaluateCandidates(claims: Claim[], sources: Source[], trial: ReturnType<typeof normalizeTrial>) {
   const categories = [...new Set(claims.map((claim) => claim.category).filter(Boolean))] as FailureCategory[];
   const candidates: Candidate[] = [];
@@ -466,24 +594,40 @@ function evaluateCandidates(claims: Claim[], sources: Source[], trial: ReturnTyp
     // Asset-level evidence can describe the program, but cannot establish why this trial failed.
     const trialSpecific = support.filter((claim) => claim.trialSpecificity === 3);
     if (!trialSpecific.length) continue;
+    const route = routeCategory(category, trialSpecific, sources);
+    if (!route) continue;
     const provenance = new Set(support.map((claim) => sources.find((source) => source.id === claim.sourceId)?.provenanceKey ?? claim.sourceId));
     const best = [...support].sort((a, b) => (b.sourceAuthority + b.directness + b.trialSpecificity + b.temporalRelevance) - (a.sourceAuthority + a.directness + a.trialSpecificity + a.temporalRelevance))[0];
     const independent = Math.min(2, Math.max(0, provenance.size - 1));
-    const contradictionPenalty = Math.max(-3, -contradictions.length);
-    const score = best.sourceAuthority + best.directness + best.trialSpecificity + independent + best.temporalRelevance + contradictionPenalty;
+    const relevantContradictions = contradictions.filter((claim) => claim.trialSpecificity >= 2);
+    const contradictionPenalty = Math.max(-3, -relevantContradictions.length);
     const documented = support.some((claim) => claim.kind === "documented cause");
     const corpus = support.map((claim) => claim.text).join(" ");
+    const expectedEvidence = expectedTests(category, `${corpus} ${trial.whyStopped ?? ""}`);
+    const missingPenalty = -expectedEvidence.filter((test) => test.status === "not found").length;
+    const score = best.sourceAuthority + best.directness + best.trialSpecificity + independent + best.temporalRelevance + contradictionPenalty + missingPenalty;
+    const hasDirectTrialEvidence = trialSpecific.some((claim) => claim.directness >= 2);
+    const hasExpectedEvidence = expectedEvidence.some((test) => test.status === "found");
+    // A registry-documented cause is sufficient. Otherwise require direct, trial-linked,
+    // category-specific evidence and enough support to clear the limited-evidence threshold.
+    if (!documented && (!hasDirectTrialEvidence || !hasExpectedEvidence || score < 5)) continue;
     candidates.push({
       category,
       claimKind: documented ? "documented cause" : score >= 8 ? "primary-cause hypothesis" : "contributor hypothesis",
       statement: documented
         ? `${category} is documented as the reason this trial stopped.`
         : `${category} is supported as a possible ${score >= 8 ? "primary explanation" : "contributor"}, but is not documented as the cause.`,
-      evidenceStrength: strength(score, documented), evidence: support, contradictions,
-      expectedEvidence: expectedTests(category, `${corpus} ${trial.whyStopped ?? ""}`), score,
+      evidenceStrength: strength(score, documented), evidence: support, contradictions: relevantContradictions,
+      expectedEvidence, score,
+      sourcePriority: route.sourcePriority,
     });
   }
-  return candidates.sort((a, b) => b.score - a.score);
+  return candidates.sort((a, b) => {
+    const documentedDelta = Number(b.claimKind === "documented cause") - Number(a.claimKind === "documented cause");
+    if (documentedDelta) return documentedDelta;
+    const priorityDelta = (a.sourcePriority ?? 6) - (b.sourcePriority ?? 6);
+    return priorityDelta || b.score - a.score;
+  });
 }
 
 function trialOutcome(trial: ReturnType<typeof normalizeTrial>) {
@@ -629,3 +773,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "The investigation service could not complete this request." }, { status: 502 });
   }
 }
+
+export const reasoningTestApi = {
+  classifyPrimaryReason,
+  classifyText,
+  evaluateCandidates,
+  expectedTests,
+  trialOutcome,
+};

@@ -39,6 +39,10 @@ The app uses a constrained 3-step agent flow:
 2. Trial + program evidence agent maps entities and searches ClinicalTrials.gov, PubMed, SEC EDGAR, FDA/openFDA, and relevant EU identifiers.
 3. Evidence judge deduplicates source families, applies expected-evidence tests, scores internal support, and removes unsupported causal claims.
 
+The failure router is deliberately conservative. It checks a documented registry stop reason first, then trial-linked registry history, sponsor/SEC evidence, regulator evidence, and finally trial-specific publications. Long filings are evaluated only in passages surrounding the NCT ID, acronym, or asset name. Active trials and completed records without a documented failure bypass failure hypothesis generation.
+
+Generic explanations such as patient selection, target biology, dose, comparator choice, or recruitment are never inserted merely to complete a report. If a category lacks direct trial-specific evidence, the app returns `There is insufficient public evidence to determine why this trial failed.`
+
 The internal score considers source authority, directness, trial specificity, independent corroboration, temporal relevance, and contradictions. The UI displays evidence-strength labels, never a probability.
 
 ## Data sources

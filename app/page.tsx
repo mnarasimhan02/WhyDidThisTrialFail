@@ -481,7 +481,7 @@ export default function Home() {
         </section>
 
         <section className="what-youll-get">
-          <div className="mono section-label">WHAT YOU'LL GET</div>
+          <div className="mono section-label">WHAT YOU&apos;LL GET</div>
           <div className="feature-grid">
             {[
               {
