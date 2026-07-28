@@ -46,6 +46,20 @@ test("recognizes trial-specific negative primary-outcome language", () => {
   );
 });
 
+test("recognizes a published lack-of-efficacy result", () => {
+  assert.equal(
+    reasoningTestApi.classifyPrimaryReason("Treatment produced no reduction in cognitive or functional decline."),
+    "efficacy",
+  );
+});
+
+test("does not route a bare FDA mention as a regulatory cause", () => {
+  assert.notEqual(
+    reasoningTestApi.classifyPrimaryReason("The outcome measure was reviewed in an FDA guidance document."),
+    "regulatory",
+  );
+});
+
 test("evaluates expected evidence independently", () => {
   const tests = reasoningTestApi.expectedTests("safety", "The sponsor reported a safety concern but no adverse-event details.");
   assert.equal(tests[0].status, "found");
