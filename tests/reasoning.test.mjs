@@ -169,8 +169,10 @@ test("verified GRADUATE evidence preserves trial-specific endpoint results", () 
   const graduateTwo = reasoningTestApi.verifiedEvidenceForTrial("NCT03443973")[0];
   assert.equal(graduateOne.category, "primary endpoint");
   assert.equal(graduateTwo.category, "primary endpoint");
-  assert.match(graduateOne.claim, /GRADUATE I did not show/i);
-  assert.match(graduateTwo.claim, /GRADUATE II did not show/i);
+  assert.match(graduateOne.claim, /GRADUATE I did not meet its primary endpoint/i);
+  assert.match(graduateTwo.claim, /GRADUATE II did not meet its primary endpoint/i);
+  assert.match(graduateOne.claim, /P=0\.10/);
+  assert.match(graduateTwo.claim, /P=0\.30/);
 });
 
 test("verified GENERATION HD1 evidence records benefit-risk without inventing safety causality", () => {
