@@ -291,19 +291,21 @@ async function retrieveHistory(nctId: string, registryUrl: string) {
   };
 }
 
-async function searchPubMed(terms: string[]) {
-  const [nctId, ...context] = [...new Set(terms.filter(Boolean))];
+async function searchPubMed(nctId: string, entityTerms: string[], indications: string[]) {
   if (!nctId) return [];
   const exactQuery = `"${nctId}"[All Fields]`;
-  let search = await getJson(`${PUBMED}/esearch.fcgi?db=pubmed&retmode=json&retmax=8&sort=relevance&term=${encodeURIComponent(exactQuery)}`, true);
-  let ids: string[] = search?.esearchresult?.idlist ?? [];
-  let matchedByNct = ids.length > 0;
-  if (!ids.length && context.length) {
-    const fallback = context.slice(0, 5).map((term) => `"${term}"[Title/Abstract]`).join(" AND ");
-    search = await getJson(`${PUBMED}/esearch.fcgi?db=pubmed&retmode=json&retmax=8&sort=relevance&term=${encodeURIComponent(fallback)}`, true);
-    ids = search?.esearchresult?.idlist ?? [];
-    matchedByNct = false;
-  }
+  const exactSearch = await getJson(`${PUBMED}/esearch.fcgi?db=pubmed&retmode=json&retmax=8&sort=relevance&term=${encodeURIComponent(exactQuery)}`, true);
+  const exactIds: string[] = exactSearch?.esearchresult?.idlist ?? [];
+  const entities = [...new Set(entityTerms.filter(Boolean))].slice(0, 4);
+  const indication = indications.find(Boolean);
+  const contextualQuery = entities.length
+    ? `(${entities.map((term) => `"${term}"[Title/Abstract]`).join(" OR ")})${indication ? ` AND "${indication}"[Title/Abstract]` : ""}`
+    : "";
+  const contextualSearch = contextualQuery
+    ? await getJson(`${PUBMED}/esearch.fcgi?db=pubmed&retmode=json&retmax=8&sort=relevance&term=${encodeURIComponent(contextualQuery)}`, true)
+    : null;
+  const contextualIds: string[] = contextualSearch?.esearchresult?.idlist ?? [];
+  const ids = [...new Set([...exactIds, ...contextualIds])].slice(0, 10);
   if (!ids.length) return [];
   const [summary, xml] = await Promise.all([
     getJson(`${PUBMED}/esummary.fcgi?db=pubmed&retmode=json&id=${ids.join(",")}`, true),
@@ -318,7 +320,8 @@ async function searchPubMed(terms: string[]) {
     const item = summary?.result?.[pmid] ?? {};
     return {
       pmid, title: first(item.title) || "PubMed record", journal: first(item.fulljournalname, item.source) || "PubMed",
-      year: first(item.pubdate) || "Unknown year", abstract: abstracts.get(pmid) || undefined, matchedByNct,
+      year: first(item.pubdate) || "Unknown year", abstract: abstracts.get(pmid) || undefined,
+      matchedByNct: exactIds.includes(pmid), matchedByContext: contextualIds.includes(pmid),
       url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
     };
   });
@@ -550,8 +553,13 @@ function buildClaims(input: {
   }
   for (const publication of publications) {
     const corpus = `${publication.title} ${publication.abstract ?? ""}`;
-    const explicitTrialMatch = Boolean(publication.matchedByNct) || has(corpus, [trial.nctId, trial.acronym ?? ""]);
-    for (const category of classifyText(corpus)) add({
+    const categories = classifyText(corpus);
+    const contextualOutcomeMatch = Boolean(publication.matchedByContext)
+      && trial.assets.some((asset) => has(corpus, [asset]))
+      && /\b(trial|study)\b/i.test(corpus)
+      && categories.some((category) => category === "primary endpoint" || category === "efficacy");
+    const explicitTrialMatch = Boolean(publication.matchedByNct) || contextualOutcomeMatch || has(corpus, [trial.nctId, trial.acronym ?? ""]);
+    for (const category of categories) add({
       text: publication.abstract?.slice(0, 360) || publication.title, kind: "observation", relation: "indirect support", category,
       sourceId: `pubmed-${publication.pmid}`, sourceAuthority: 2, directness: explicitTrialMatch ? 2 : 1,
       trialSpecificity: explicitTrialMatch ? 3 : trial.assets.some((asset) => has(corpus, [asset])) ? 2 : 1,
@@ -757,7 +765,7 @@ export async function GET(request: Request) {
     const trial = normalizeTrial(study?.studies?.[0] ?? study, nctId);
     const registryUrl = `https://clinicaltrials.gov/study/${nctId}`;
     const historyPromise = retrieveHistory(nctId, registryUrl);
-    const publicationsPromise = searchPubMed([nctId, trial.acronym ?? "", ...trial.assets, ...trial.indication]);
+    const publicationsPromise = searchPubMed(nctId, [trial.acronym ?? "", ...trial.assets], trial.indication);
     const relatedPromise = relatedTrials(trial);
     const secPromise = retrieveSec(trial);
     const fdaPromise = retrieveFda(trial);
