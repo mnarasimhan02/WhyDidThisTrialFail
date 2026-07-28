@@ -339,7 +339,10 @@ export default function Home() {
 
         <section className="folder grain hero-card">
           <div className="hero-copy">
-            <h1 className="stampfont">WhyDidThisTrialFail</h1>
+            <h1 className="stampfont hero-title">
+              <span className="hero-title-compact">WhyDidThisTrialFail</span>
+              <span className="hero-title-expanded">Why Did This Trial Fail?</span>
+            </h1>
             <p className="lede">
               Paste one NCT ID and get a source-backed investigation of the public
               record: the most plausible failure hypotheses, and the evidence

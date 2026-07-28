@@ -26,6 +26,7 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-inter), system-ui, sans-serif;
+  overflow-x: hidden;
 }
 
 body {
@@ -169,6 +170,19 @@ h1.stampfont {
   color: var(--stamp);
   letter-spacing: -0.01em;
   max-width: 6.6ch;
+}
+
+.hero-title {
+  max-width: 8.8ch;
+}
+
+.hero-title-compact,
+.hero-title-expanded {
+  display: block;
+}
+
+.hero-title-expanded {
+  display: none;
 }
 
 .lede {
@@ -1115,8 +1129,20 @@ h1.stampfont {
     min-height: 0;
   }
 
-  h1.stampfont {
+  .hero-title {
+    font-size: clamp(2rem, 7vw, 3.2rem);
+    line-height: 1.02;
     max-width: 100%;
+  }
+
+  .hero-title-compact {
+    display: none;
+  }
+
+  .hero-title-expanded {
+    display: block;
+    text-wrap: balance;
+    overflow-wrap: anywhere;
   }
 }
 
@@ -1135,15 +1161,36 @@ h1.stampfont {
     gap: 20px;
   }
 
+  .hero-title {
+    font-size: clamp(1.75rem, 9vw, 2.6rem);
+    line-height: 1.05;
+  }
+
+  .lede {
+    font-size: 0.98rem;
+    line-height: 1.58;
+    max-width: 100%;
+  }
+
   .search-row {
     display: grid;
     max-width: 100%;
+  }
+
+  .search-help {
+    grid-template-columns: 1fr;
   }
 
   .nct-input,
   .go-btn {
     border-radius: 4px;
     border-right-width: 1px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .go-btn {
+    padding-inline: 14px;
   }
 
   .feature-grid,
@@ -1159,6 +1206,35 @@ h1.stampfont {
     align-items: start;
   }
 
+  .result-shell,
+  .result-panel-shell {
+    padding: 18px 16px;
+  }
+
+  .result-title {
+    font-size: clamp(1.15rem, 5.4vw, 1.55rem);
+    line-height: 1.16;
+    max-width: 100%;
+  }
+
+  .result-answer {
+    font-size: 0.98rem;
+    line-height: 1.58;
+  }
+
+  .examples {
+    gap: 6px;
+  }
+
+  .examples-label {
+    width: 100%;
+  }
+
+  .examples .chip {
+    width: 100%;
+    min-width: 0;
+  }
+
   .confidence-wrap {
     min-width: 0;
   }
@@ -1169,5 +1245,11 @@ h1.stampfont {
 
   .hypothesis-meta {
     justify-content: flex-start;
+  }
+
+  .source-columns,
+  .source-row,
+  .evidence-row {
+    min-width: 0;
   }
 }
