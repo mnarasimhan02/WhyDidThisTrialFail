@@ -156,3 +156,26 @@ test("does not suppress an ongoing record with established trial-specific negati
   assert.equal(resolved.suppress, false);
   assert.equal(resolved.outcome.classification, "negative outcome reported");
 });
+
+test("verified EPOCH evidence records futility and lack of efficacy", () => {
+  const [evidence] = reasoningTestApi.verifiedEvidenceForTrial("NCT01739348");
+  assert.equal(evidence.category, "efficacy");
+  assert.equal(evidence.documentedCause, true);
+  assert.match(evidence.claim, /terminated early for futility/i);
+});
+
+test("verified GRADUATE evidence preserves trial-specific endpoint results", () => {
+  const graduateOne = reasoningTestApi.verifiedEvidenceForTrial("NCT03444870")[0];
+  const graduateTwo = reasoningTestApi.verifiedEvidenceForTrial("NCT03443973")[0];
+  assert.equal(graduateOne.category, "primary endpoint");
+  assert.equal(graduateTwo.category, "primary endpoint");
+  assert.match(graduateOne.claim, /GRADUATE I did not show/i);
+  assert.match(graduateTwo.claim, /GRADUATE II did not show/i);
+});
+
+test("verified GENERATION HD1 evidence records benefit-risk without inventing safety causality", () => {
+  const [evidence] = reasoningTestApi.verifiedEvidenceForTrial("NCT03761849");
+  assert.equal(evidence.category, "benefit-risk");
+  assert.equal(evidence.documentedCause, true);
+  assert.match(evidence.claim, /no new safety signals/i);
+});
