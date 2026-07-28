@@ -309,18 +309,19 @@ async function searchPubMed(nctId: string, entityTerms: string[], indications: s
   if (!ids.length) return [];
   const [summary, xml] = await Promise.all([
     getJson(`${PUBMED}/esummary.fcgi?db=pubmed&retmode=json&id=${ids.join(",")}`, true),
-    getText(`${PUBMED}/efetch.fcgi?db=pubmed&id=${ids.join(",")}&retmode=xml`),
+    getText(`${PUBMED}/efetch.fcgi?db=pubmed&id=${ids.join(",")}&rettype=abstract&retmode=xml`),
   ]);
   const articles = [...xml.matchAll(/<PubmedArticle>([\s\S]*?)<\/PubmedArticle>/g)].map((match) => match[1]);
+  const articleAbstracts = articles.map((article) => xmlValues(article, "AbstractText").join(" "));
   const abstracts = new Map(articles.map((article) => [
     xmlValues(article, "PMID")[0],
     xmlValues(article, "AbstractText").join(" "),
   ]));
-  return ids.map((pmid) => {
+  return ids.map((pmid, index) => {
     const item = summary?.result?.[pmid] ?? {};
     return {
       pmid, title: first(item.title) || "PubMed record", journal: first(item.fulljournalname, item.source) || "PubMed",
-      year: first(item.pubdate) || "Unknown year", abstract: abstracts.get(pmid) || undefined,
+      year: first(item.pubdate) || "Unknown year", abstract: abstracts.get(pmid) || articleAbstracts[index] || undefined,
       matchedByNct: exactIds.includes(pmid), matchedByContext: contextualIds.includes(pmid),
       url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
     };
