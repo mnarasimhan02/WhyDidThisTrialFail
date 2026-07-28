@@ -27,6 +27,15 @@ type InvestigationResponse = {
     completionDateType?: "ACTUAL" | "ESTIMATED" | "UNKNOWN";
     locationsCount?: number;
   };
+  programMap?: {
+    assetNames: string[];
+    sponsor: string;
+    indication: string[];
+    acronym: string | null;
+    relatedTrialIds: string[];
+  };
+  trialOutcome?: { classification: string; statement: string };
+  programOutcome?: { classification: string; statement: string };
   bottomLine: string;
   verdict: "DIRECTLY DOCUMENTED" | "STRONG PUBLIC EVIDENCE" | "MODERATE PUBLIC EVIDENCE" | "LIMITED PUBLIC EVIDENCE" | "SPECULATIVE" | "INSUFFICIENT EVIDENCE";
   hypotheses: Array<{
@@ -53,6 +62,17 @@ type InvestigationResponse = {
     event: string;
     source: string;
     url: string;
+    scope?: "trial" | "program";
+  }>;
+  evidenceMatrix?: Array<{
+    category: string;
+    claimKind: string;
+    evidenceStrength: InvestigationResponse["verdict"];
+    directSupport: number;
+    indirectSupport: number;
+    contradictions: number;
+    missingExpectedEvidence: number;
+    sourceFamilies: number;
   }>;
   relatedTrials: Array<{
     nctId: string;
@@ -100,26 +120,26 @@ type ApiState =
   | { status: "error"; message: string }
   | { status: "success"; data: InvestigationResponse };
 
-const EXAMPLES = ["NCT00232128", "NCT00000419", "NCT04280705"];
+const EXAMPLES = ["NCT02569398", "NCT04280705", "NCT02009449"];
 
 const TRIALS = [
   {
-    nctId: "NCT00232128",
-    title: "Protocol for Radiofrequency Ablation of Pulmonary Neoplasms",
-    sponsor: "Oncology Specialties, Alabama",
-    condition: "Pulmonary Neoplasms",
-  },
-  {
-    nctId: "NCT00000419",
-    title: "Adaptive COVID-19 Treatment Trial (ACTT)",
-    sponsor: "NIAID",
-    condition: "COVID-19",
+    nctId: "NCT02569398",
+    title: "Efficacy and Safety Study of Atabecestat",
+    sponsor: "Janssen Research & Development, LLC",
+    condition: "Preclinical Alzheimer's Disease",
   },
   {
     nctId: "NCT04280705",
-    title: "Adaptive COVID-19 Treatment Trial 2 (ACTT-2)",
-    sponsor: "NIAID",
+    title: "Adaptive COVID-19 Treatment Trial (ACTT)",
+    sponsor: "National Institute of Allergy and Infectious Diseases",
     condition: "COVID-19",
+  },
+  {
+    nctId: "NCT02009449",
+    title: "Phase 1 Study of Pegilodecakin in Advanced Solid Tumors",
+    sponsor: "Eli Lilly and Company",
+    condition: "Advanced solid tumors",
   },
 ] as const;
 
@@ -515,8 +535,65 @@ export default function Home() {
                 {data.bottomLine}
               </p>
               <div className="result-footnote mono">
-                Built from {data.evidenceModel.directFacts} direct facts and {data.evidenceModel.inferences} inferences across the registry record, PubMed, and related trials.
+                Built from {data.evidenceModel.directFacts} direct observations and {data.evidenceModel.derivedFacts} temporal comparisons. Missing evidence is reported as not found, never as proof of absence.
               </div>
+            </section>
+
+            <section className="folder grain result-panel-shell outcome-section">
+              <div className="mono panel-kicker">TRIAL ≠ PROGRAM</div>
+              <div className="outcome-grid">
+                <article>
+                  <div className="mono outcome-label">TRIAL OUTCOME</div>
+                  <strong>{data.trialOutcome?.classification ?? data.overview.status}</strong>
+                  <p>{data.trialOutcome?.statement ?? "The registry record describes the individual trial outcome."}</p>
+                </article>
+                <article>
+                  <div className="mono outcome-label">ASSET / PROGRAM OUTCOME</div>
+                  <strong>{data.programOutcome?.classification ?? "not established"}</strong>
+                  <p>{data.programOutcome?.statement ?? "The broader program outcome was not established."}</p>
+                </article>
+              </div>
+            </section>
+
+            <section className="folder grain result-panel-shell">
+              <div className="panel-headline evidence-heading">
+                <div>
+                  <div className="mono panel-kicker">TEMPORAL RECORD</div>
+                  <div className="section-subcopy">Sequence is shown for context and is not treated as causal proof.</div>
+                </div>
+              </div>
+              <div className="timeline-list">
+                {data.timeline.map((item, index) => (
+                  <a className="timeline-item" href={item.url} target="_blank" rel="noreferrer" key={`${item.date}-${index}`}>
+                    <span className="timeline-dot" />
+                    <span className="mono timeline-date">{formatDate(item.date)}</span>
+                    <span className="timeline-copy">{item.event}</span>
+                    <span className="mono timeline-scope">{item.scope ?? "trial"}</span>
+                  </a>
+                ))}
+              </div>
+            </section>
+
+            <section className="folder grain result-panel-shell">
+              <div className="mono panel-kicker">EVIDENCE MATRIX</div>
+              <div className="section-subcopy">Only trial-specific candidates are shown. Repeated coverage of one announcement counts once.</div>
+              {data.evidenceMatrix?.length ? (
+                <div className="matrix-scroll">
+                  <table className="evidence-matrix">
+                    <thead><tr><th>Candidate</th><th>Claim level</th><th>Evidence</th><th>Direct</th><th>Indirect</th><th>Against</th><th>Expected not found</th></tr></thead>
+                    <tbody>
+                      {data.evidenceMatrix.map((row) => (
+                        <tr key={row.category}>
+                          <td className="matrix-category">{row.category}</td>
+                          <td>{row.claimKind}</td>
+                          <td><span className={`badge badge-${strengthTone(row.evidenceStrength)}`}>{strengthLabel(row.evidenceStrength)}</span></td>
+                          <td>{row.directSupport}</td><td>{row.indirectSupport}</td><td>{row.contradictions}</td><td>{row.missingExpectedEvidence}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : <p className="muted-copy">No trial-specific causal hypothesis met the evidence threshold.</p>}
             </section>
 
             <section className="folder grain result-panel-shell">
@@ -644,7 +721,7 @@ export default function Home() {
               </button>
               {showMethod ? (
                 <div className="method-copy">
-                  Eligibility gate first checks the registry record. If the public record supports a plausible failure signal, the research agent pulls ClinicalTrials.gov, PubMed, and comparator trials. The reasoning agent builds only trial-specific hypotheses, and the judge agent removes weak claims or downgrades unsupported conclusions.
+                  First, the temporal agent compares ClinicalTrials.gov record versions and creates a deterministic event sequence. Next, the evidence agent maps the trial to its asset and program and checks registry, PubMed, SEC, FDA, and relevant EU identifiers. Finally, the judge deduplicates repeated announcements, runs category-specific expected-evidence tests, and suppresses any hypothesis without trial-specific support.
                 </div>
               ) : null}
             </section>

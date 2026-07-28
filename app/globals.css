@@ -48,6 +48,107 @@ button {
   cursor: pointer;
 }
 
+.outcome-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.outcome-grid article {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  background: rgba(247, 244, 233, 0.62);
+}
+
+.outcome-grid strong {
+  display: block;
+  margin: 7px 0;
+  color: var(--stamp);
+  text-transform: uppercase;
+}
+
+.outcome-grid p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.outcome-label,
+.timeline-scope {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.timeline-list {
+  display: grid;
+  margin-top: 18px;
+}
+
+.timeline-item {
+  display: grid;
+  grid-template-columns: 12px 120px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 13px 0;
+  border-top: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+}
+
+.timeline-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--stamp);
+}
+
+.timeline-date {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.timeline-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.matrix-scroll {
+  margin-top: 18px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+}
+
+.evidence-matrix {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  background: rgba(247, 244, 233, 0.5);
+  font-size: 13px;
+}
+
+.evidence-matrix th,
+.evidence-matrix td {
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.evidence-matrix th {
+  font-family: "IBM Plex Mono", monospace;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.matrix-category {
+  color: var(--stamp);
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
 .wdtf-root {
   min-height: 100vh;
 }
@@ -1272,5 +1373,27 @@ h1.stampfont {
   .source-row,
   .evidence-row {
     min-width: 0;
+  }
+
+  .outcome-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .timeline-item {
+    grid-template-columns: 12px minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .timeline-date {
+    grid-column: 2 / -1;
+    grid-row: 1;
+  }
+
+  .timeline-copy {
+    grid-column: 2;
+  }
+
+  .timeline-scope {
+    grid-column: 3;
   }
 }

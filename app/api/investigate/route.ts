@@ -1,1218 +1,631 @@
 import { NextResponse } from "next/server";
 
-type CtgStudy = Record<string, any>;
+type Json = Record<string, any>;
 
-const CTG_BASE = "https://clinicaltrials.gov/api/v2";
-const PUBMED_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils";
-
-const ELIGIBLE_STATUSES = new Set([
-  "terminated",
-  "withdrawn",
-  "suspended",
-  "completed",
-  "active, not recruiting",
-  "active not recruiting",
-  "not yet recruiting",
-  "recruiting",
-  "enrolling by invitation",
-]);
-
-type DateState = {
-  value: string | null;
-  type: "ACTUAL" | "ESTIMATED" | "UNKNOWN";
-};
-
-type NormalizedTrial = {
-  nctId: string;
-  officialTitle: string | null;
-  briefTitle: string | null;
-  overallStatus: string | null;
-  studyType: string | null;
-  phases: string[];
-  sponsor: string | null;
-  startDate: DateState;
-  primaryCompletionDate: DateState;
-  completionDate: DateState;
-  enrollment: {
-    count: number | null;
-    type: "ACTUAL" | "ESTIMATED" | "UNKNOWN";
-  };
-  whyStopped: string | null;
-  hasResults: boolean;
-  primaryOutcomes: Array<{
-    measure: string;
-    timeFrame: string | null;
-    description: string | null;
-  }>;
-  lastUpdatePosted: string | null;
-};
-
-type EligibilityOutcome =
-  | "ELIGIBLE_FOR_FAILURE_INVESTIGATION"
-  | "ONGOING"
-  | "COMPLETED_WITHOUT_FAILURE_EVIDENCE"
-  | "TERMINATED_OR_WITHDRAWN"
-  | "RESULTS_NEGATIVE_OR_ENDPOINT_MISSED"
-  | "INSUFFICIENT_PUBLIC_INFORMATION"
-  | "INVALID_OR_UNRESOLVED_TRIAL"
-  | "NON_INTERVENTIONAL_OR_NOT_APPLICABLE";
+const CTG = "https://clinicaltrials.gov/api/v2";
+const CTG_HISTORY = "https://clinicaltrials.gov/api/int/studies";
+const PUBMED = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils";
+const SEC = "https://data.sec.gov";
+const OPEN_FDA = "https://api.fda.gov";
+const USER_AGENT = "WhyDidThisTrialFail/2.0 contact@whydidthistrialfail.ai";
+const INSUFFICIENT = "There is insufficient public evidence to determine why this trial failed.";
 
 type FailureCategory =
-  | "SAFETY"
-  | "PRIMARY_ENDPOINT"
-  | "LACK_OF_EFFICACY"
-  | "REGULATORY"
-  | "ENROLLMENT"
-  | "BUSINESS"
-  | "CMC"
-  | "OPERATIONAL"
-  | "UNKNOWN"
-  | "NOT_A_FAILURE";
+  | "safety" | "efficacy" | "primary endpoint" | "enrollment" | "operational"
+  | "protocol design" | "regulatory" | "CMC/manufacturing" | "funding"
+  | "commercial strategy" | "portfolio prioritization" | "partner decision"
+  | "unknown" | "not a failure";
 
-type EvidenceCategory = "registry_fact" | "source_reported_fact" | "inference" | "hypothesis";
+type ClaimKind =
+  | "observation" | "association" | "contributor hypothesis"
+  | "primary-cause hypothesis" | "documented cause";
+
+type EvidenceRelation = "direct support" | "indirect support" | "contradiction" | "missing expected evidence";
 type EvidenceStrength =
-  | "DIRECTLY_DOCUMENTED"
-  | "STRONG PUBLIC EVIDENCE"
-  | "MODERATE PUBLIC EVIDENCE"
-  | "LIMITED PUBLIC EVIDENCE"
-  | "SPECULATIVE"
-  | "INSUFFICIENT EVIDENCE";
+  | "DIRECTLY DOCUMENTED" | "STRONG PUBLIC EVIDENCE" | "MODERATE PUBLIC EVIDENCE"
+  | "LIMITED PUBLIC EVIDENCE" | "SPECULATIVE" | "INSUFFICIENT EVIDENCE";
 
-type ResearchBundle = {
-  study: CtgStudy;
-  trial: NormalizedTrial;
-  failureCategory: FailureCategory;
-  categoryEvidence: Array<{
-    title: string;
-    abstract?: string;
-    url: string;
-  }>;
-  eligibility: {
-    outcome: EligibilityOutcome;
-    reason: string;
-    registryFacts: string[];
-    shouldInvestigate: boolean;
-  };
-  dates: {
-    startDate: DateState;
-    completionDate: DateState;
-  };
-  sourceTimestamp: string;
-  relatedTrials: Array<{
-    nctId: string;
-    title: string;
-    relevance: string;
-    status: string;
-    url: string;
-  }>;
-  publications: Array<{
-    pmid: string;
-    title: string;
-    journal: string;
-    year: string;
-    abstract?: string;
-    url: string;
-  }>;
-  registryFacts: Array<{
-    label: string;
-    value: string;
-  }>;
-};
-
-type Hypothesis = {
+type Source = {
   id: string;
-  label: string;
-  evidenceStrength: EvidenceStrength;
-  statement: string;
-  whyItMatters: string;
-  evidence: Array<{
-    category: EvidenceCategory;
-    sourceType: string;
-    citation: string;
-    claim: string;
-    url: string;
-  }>;
-  counterevidence: Array<{
-    citation: string;
-    claim: string;
-    url: string;
-  }>;
-};
-
-type WorkflowStep = {
   name: string;
-  status: "done";
-  summary: string;
-  signals: string[];
+  sourceType: "registry" | "registry-history" | "publication" | "sec" | "fda" | "ctis";
+  authority: number;
+  url: string;
+  date?: string;
+  detail: string;
+  provenanceKey: string;
+  availability: "retrieved" | "not found" | "not applicable" | "unavailable";
 };
 
-function normalizeList(value: unknown): string[] {
-  if (!value) return [];
-  if (Array.isArray(value)) {
-    return value
-      .flatMap((item) => normalizeList(item))
-      .map((item) => item.trim())
-      .filter(Boolean);
-  }
-  if (typeof value === "string") return [value.trim()].filter(Boolean);
+type Claim = {
+  id: string;
+  text: string;
+  kind: ClaimKind;
+  relation: EvidenceRelation;
+  category?: FailureCategory;
+  sourceId: string;
+  sourceAuthority: number;
+  directness: number;
+  trialSpecificity: number;
+  temporalRelevance: number;
+  eventId?: string;
+  entityIds: string[];
+};
+
+type TimelineEvent = {
+  id: string;
+  date: string;
+  event: string;
+  eventType: string;
+  source: string;
+  sourceId: string;
+  url: string;
+  scope: "trial" | "program";
+};
+
+type Candidate = {
+  category: FailureCategory;
+  claimKind: ClaimKind;
+  statement: string;
+  evidenceStrength: EvidenceStrength;
+  evidence: Claim[];
+  contradictions: Claim[];
+  expectedEvidence: Array<{ test: string; status: "found" | "not found"; note: string }>;
+  score: number;
+};
+
+function list(value: unknown): string[] {
+  if (value == null) return [];
+  if (Array.isArray(value)) return value.flatMap(list).map((x) => x.trim()).filter(Boolean);
+  if (typeof value === "string") return value.trim() ? [value.trim()] : [];
   if (typeof value === "object") {
-    const obj = value as Record<string, unknown>;
-    return [
-      ...normalizeList(obj.name),
-      ...normalizeList(obj.term),
-      ...normalizeList(obj.label),
-      ...normalizeList(obj.title),
-      ...normalizeList(obj.value),
-    ];
+    const item = value as Json;
+    return [...list(item.name), ...list(item.term), ...list(item.label), ...list(item.title), ...list(item.value)];
   }
   return [];
 }
 
-function firstString(...values: unknown[]) {
+function first(...values: unknown[]) {
   for (const value of values) {
-    const list = normalizeList(value);
-    if (list.length > 0) return list[0];
-    if (typeof value === "string" && value.trim()) return value.trim();
+    const found = list(value)[0];
+    if (found) return found;
   }
   return "";
 }
 
-function toArray(value: unknown) {
-  return normalizeList(value);
+function text(value: unknown) {
+  return list(value).join(" ");
 }
 
-function extractTextFromXml(xml: string, tag: string) {
-  const matches = [...xml.matchAll(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "g"))];
-  return matches
-    .map((match) => match[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim())
-    .filter(Boolean);
+function has(haystack: string, terms: string[]) {
+  const normalized = haystack.toLowerCase();
+  return terms.filter((term) => term.trim().length > 0).some((term) => normalized.includes(term.toLowerCase()));
 }
 
-function stripMarkup(value: string) {
-  return value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+function cleanMarkup(value: string) {
+  return value.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
 }
 
-function formatTitleCase(value: string) {
-  return value
-    .replace(/[_-]+/g, " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase())
-    .trim();
+function xmlValues(xml: string, tag: string) {
+  return [...xml.matchAll(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "g"))].map((match) => cleanMarkup(match[1])).filter(Boolean);
 }
 
-function includesAny(value: string, terms: string[]) {
-  const text = value.toLowerCase();
-  return terms.some((term) => text.includes(term.toLowerCase()));
+function dateValue(value: unknown) {
+  return first((value as Json)?.date, value) || "Not reported";
 }
 
-function containsGenericExplanation(value: string) {
-  return includesAny(value, ["patient selection", "biology", "comparator", "dose", "recruitment"]);
-}
-
-function categoryPrompt(category: FailureCategory) {
-  switch (category) {
-    case "SAFETY":
-      return ["adverse events", "SAE", "DSMB", "safety publications", "dose reductions", "deaths", "FDA communications", "clinical holds"];
-    case "PRIMARY_ENDPOINT":
-    case "LACK_OF_EFFICACY":
-      return ["primary endpoint", "secondary endpoints", "hazard ratio", "ORR", "PFS", "OS", "p-value", "subgroup analyses"];
-    case "BUSINESS":
-      return ["SEC filings", "investor presentations", "layoffs", "restructuring", "partnership termination", "pipeline reprioritization", "financing"];
-    case "REGULATORY":
-      return ["FDA", "EMA", "clinical hold", "CRL", "inspection findings", "manufacturing issues"];
-    case "ENROLLMENT":
-      return ["enrollment", "recruitment", "accrual", "screening", "site activation"];
-    case "CMC":
-      return ["manufacturing", "batch release", "specification", "stability", "impurity", "quality control"];
-    case "OPERATIONAL":
-      return ["protocol deviations", "site issues", "data quality", "amendments", "logistics"];
-    default:
-      return [];
+async function getJson(url: string, optional = false): Promise<any | null> {
+  try {
+    const response = await fetch(url, {
+      headers: { accept: "application/json", "user-agent": USER_AGENT },
+      cache: "no-store",
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (!response.ok) {
+      if (optional) return null;
+      throw new Error(`Required source returned ${response.status}`);
+    }
+    return response.json();
+  } catch (error) {
+    if (optional) return null;
+    throw error;
   }
 }
 
-function routeFailureCategory(trial: NormalizedTrial, study: CtgStudy, publications: ResearchBundle["publications"], relatedTrials: ResearchBundle["relatedTrials"]): FailureCategory {
-  const whyStopped = (trial.whyStopped || "").toLowerCase();
-  const title = `${trial.officialTitle || ""} ${trial.briefTitle || ""}`.toLowerCase();
-  const pubText = publications.map((item) => `${item.title} ${item.abstract ?? ""}`).join(" ").toLowerCase();
-  const relatedText = relatedTrials.map((item) => `${item.title} ${item.relevance}`).join(" ").toLowerCase();
-  const combined = `${whyStopped} ${title} ${pubText} ${relatedText}`;
-
-  if (!trial.overallStatus || trial.overallStatus === "Not reported") return "UNKNOWN";
-  if (["recruiting", "not yet recruiting", "active, not recruiting", "active not recruiting", "enrolling by invitation"].includes((trial.overallStatus || "").toLowerCase())) {
-    return "NOT_A_FAILURE";
+async function getText(url: string): Promise<string> {
+  try {
+    const response = await fetch(url, {
+      headers: { accept: "text/plain,text/xml,text/html", "user-agent": USER_AGENT },
+      cache: "no-store",
+      signal: AbortSignal.timeout(12_000),
+    });
+    return response.ok ? response.text() : "";
+  } catch {
+    return "";
   }
-  if (includesAny(combined, ["safety", "toxicity", "adverse event", "adverse events", "serious adverse", "sae", "dsmb", "death", "deaths", "clinical hold"])) return "SAFETY";
-  if (includesAny(combined, ["fda", "ema", "crl", "clinical hold", "regulatory", "inspection", "approval", "label"])) return "REGULATORY";
-  if (includesAny(combined, ["sec", "investor", "restructur", "layoff", "partnership", "financing", "repriorit", "pipeline"])) return "BUSINESS";
-  if (includesAny(combined, ["manufactur", "batch", "release", "specification", "contamination", "impurity", "stability", "quality control"])) return "CMC";
-  if (includesAny(combined, ["protocol deviation", "site issue", "operational", "timing", "logistics", "data quality", "missing data", "amendment"])) return "OPERATIONAL";
-  if (includesAny(combined, ["enroll", "recruitment", "accrual", "screening", "enrollment target"])) return "ENROLLMENT";
-  if (includesAny(combined, ["primary endpoint", "primary outcome", "did not meet", "missed endpoint"])) return "PRIMARY_ENDPOINT";
-  if (includesAny(combined, ["hazard ratio", "orr", "pfs", "os", "p-value", "subgroup", "efficacy", "response rate"])) return "LACK_OF_EFFICACY";
-  if (!study?.protocolSection?.statusModule?.whyStopped && trial.overallStatus?.toLowerCase() === "completed") return "UNKNOWN";
-  return "UNKNOWN";
 }
 
-function normalizeDate(value: unknown, typeHint?: unknown): DateState {
-  const text = firstString(value);
-  const hint = firstString(typeHint).toLowerCase();
-  const type: DateState["type"] = hint.includes("estimated")
-    ? "ESTIMATED"
-    : text
-      ? "ACTUAL"
-      : "UNKNOWN";
-  return {
-    value: text || null,
-    type,
-  };
+function sourceFingerprint(value: string) {
+  return value.toLowerCase()
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim().split(" ").filter((word) => word.length > 3).slice(0, 18).sort().join("-");
 }
 
-function normalizeEnrollment(value: unknown, typeHint?: unknown) {
-  const text = firstString(value);
-  const count = text ? Number.parseInt(text.replace(/[^\d]/g, ""), 10) : Number.NaN;
-  return {
-    count: Number.isFinite(count) ? count : null,
-    type: firstString(typeHint).toLowerCase().includes("estimated")
-      ? "ESTIMATED"
-      : text
-        ? "ACTUAL"
-        : "UNKNOWN",
-  } as const;
+function assetNames(study: Json) {
+  const interventions = study?.protocolSection?.armsInterventionsModule?.interventions ?? [];
+  return (Array.isArray(interventions) ? interventions : [interventions])
+    .map((item: Json) => first(item?.name))
+    .filter((name: string) => name && !/placebo|standard of care|best supportive care/i.test(name));
 }
 
-function getOfficialTitle(study: CtgStudy) {
-  return firstString(study?.protocolSection?.identificationModule?.officialTitle);
-}
-
-function getStudyType(study: CtgStudy) {
-  return firstString(study?.protocolSection?.designModule?.studyType);
-}
-
-function getWhyStopped(study: CtgStudy) {
-  return firstString(study?.protocolSection?.statusModule?.whyStopped);
-}
-
-function getResultsPosted(study: CtgStudy) {
-  return Boolean(study?.hasResults ?? study?.resultsSection?.hasResults ?? false);
-}
-
-function getEnrollment(study: CtgStudy) {
-  return normalizeEnrollment(
-    study?.protocolSection?.designModule?.enrollmentInfo?.count,
-    study?.protocolSection?.designModule?.enrollmentInfo?.type,
-  );
-}
-
-function getDateState(study: CtgStudy, key: "start" | "primaryCompletion" | "completion") {
-  const status = study?.protocolSection?.statusModule ?? {};
-  if (key === "start") {
-    return normalizeDate(status.startDate, status.startDateType);
-  }
-  if (key === "primaryCompletion") {
-    return normalizeDate(status.primaryCompletionDate, status.primaryCompletionDateType);
-  }
-  return normalizeDate(status.completionDate, status.completionDateType);
-}
-
-function getPhase(study: CtgStudy) {
-  return firstString(
-    study?.protocolSection?.designModule?.phases,
-    study?.protocolSection?.designModule?.phase,
-    study?.protocolSection?.designModule?.studyType,
-  ) || "Not reported";
-}
-
-function getStatus(study: CtgStudy) {
-  return firstString(study?.protocolSection?.statusModule?.overallStatus) || "Not reported";
-}
-
-function getSponsor(study: CtgStudy) {
-  return (
-    firstString(
-      study?.protocolSection?.sponsorCollaboratorsModule?.leadSponsor?.name,
-      study?.protocolSection?.sponsorCollaboratorsModule?.leadSponsor?.class,
-    ) || "Not reported"
-  );
-}
-
-function getTarget(study: CtgStudy) {
-  const conditions = toArray(study?.protocolSection?.conditionsModule?.conditions);
-  const interventionNames = toArray(study?.protocolSection?.armsInterventionsModule?.interventions?.map((item: any) => item?.name));
-  return firstString(...interventionNames, ...conditions) || "Not reported";
-}
-
-function getPrimaryObjective(study: CtgStudy) {
-  const outcomes = study?.protocolSection?.outcomesModule?.primaryOutcomes ?? [];
-  const firstOutcome = Array.isArray(outcomes) ? outcomes[0] : outcomes;
-  return (
-    firstString(firstOutcome?.measure, firstOutcome?.description) ||
-    firstString(study?.protocolSection?.designModule?.description) ||
-    "Not reported"
-  );
-}
-
-function getDates(study: CtgStudy) {
-  return {
-    startDate: firstString(study?.protocolSection?.statusModule?.studyFirstSubmitDate, study?.protocolSection?.statusModule?.startDate),
-    completionDate: firstString(study?.protocolSection?.statusModule?.completionDate, study?.protocolSection?.statusModule?.primaryCompletionDate),
-  };
-}
-
-function getLocationsCount(study: CtgStudy) {
-  const facilities = study?.protocolSection?.contactsLocationsModule?.locations;
-  return Array.isArray(facilities) ? facilities.length : undefined;
-}
-
-function getPrimaryOutcomes(study: CtgStudy) {
-  const outcomes = study?.protocolSection?.outcomesModule?.primaryOutcomes ?? [];
-  return (Array.isArray(outcomes) ? outcomes : [outcomes])
-    .map((item: any) => ({
-      measure: firstString(item?.measure),
-      timeFrame: firstString(item?.timeFrame) || null,
-      description: firstString(item?.description) || null,
-    }))
-    .filter((item: any) => item.measure);
-}
-
-function normalizeTrial(study: CtgStudy, nctId: string): NormalizedTrial {
+function normalizeTrial(study: Json, nctId: string) {
+  const protocol = study?.protocolSection ?? {};
+  const identification = protocol.identificationModule ?? {};
+  const status = protocol.statusModule ?? {};
+  const design = protocol.designModule ?? {};
+  const sponsorModule = protocol.sponsorCollaboratorsModule ?? {};
+  const outcomes = protocol.outcomesModule?.primaryOutcomes ?? [];
+  const secondaryIds = identification.secondaryIdInfos ?? [];
   return {
     nctId,
-    officialTitle: getOfficialTitle(study) || null,
-    briefTitle: firstString(study?.protocolSection?.identificationModule?.briefTitle) || null,
-    overallStatus: getStatus(study) || null,
-    studyType: getStudyType(study) || null,
-    phases: toArray(study?.protocolSection?.designModule?.phases),
-    sponsor: getSponsor(study) || null,
-    startDate: getDateState(study, "start"),
-    primaryCompletionDate: getDateState(study, "primaryCompletion"),
-    completionDate: getDateState(study, "completion"),
-    enrollment: getEnrollment(study),
-    whyStopped: getWhyStopped(study) || null,
-    hasResults: getResultsPosted(study),
-    primaryOutcomes: getPrimaryOutcomes(study),
-    lastUpdatePosted: firstString(study?.lastUpdatePostDateStruct?.date, study?.protocolSection?.statusModule?.lastUpdateSubmitDate) || null,
+    title: first(identification.briefTitle, identification.officialTitle) || "Untitled study",
+    officialTitle: first(identification.officialTitle),
+    acronym: first(identification.acronym) || null,
+    sponsor: first(sponsorModule.leadSponsor?.name, sponsorModule.leadSponsor?.class) || "Not reported",
+    collaborators: list((sponsorModule.collaborators ?? []).map((item: Json) => item?.name)),
+    assets: assetNames(study),
+    indication: list(protocol.conditionsModule?.conditions),
+    status: first(status.overallStatus) || "Not reported",
+    whyStopped: first(status.whyStopped) || null,
+    phase: first(design.phases, design.studyType) || "Not reported",
+    studyType: first(design.studyType),
+    enrollment: Number(first(design.enrollmentInfo?.count)) || null,
+    enrollmentType: first(design.enrollmentInfo?.type) || "UNKNOWN",
+    startDate: dateValue(status.startDateStruct ?? status.startDate),
+    primaryCompletionDate: dateValue(status.primaryCompletionDateStruct ?? status.primaryCompletionDate),
+    completionDate: dateValue(status.completionDateStruct ?? status.completionDate),
+    firstPosted: dateValue(status.studyFirstPostDateStruct ?? status.studyFirstSubmitDate),
+    lastUpdate: dateValue(status.lastUpdatePostDateStruct ?? status.lastUpdateSubmitDate),
+    hasResults: Boolean(study?.hasResults || study?.resultsSection),
+    primaryOutcomes: (Array.isArray(outcomes) ? outcomes : [outcomes]).map((item: Json) => ({
+      measure: first(item?.measure), timeFrame: first(item?.timeFrame), description: first(item?.description),
+    })).filter((item: Json) => item.measure),
+    secondaryIds: (Array.isArray(secondaryIds) ? secondaryIds : [secondaryIds]).map((item: Json) => ({
+      id: first(item?.id), type: first(item?.type), domain: first(item?.domain),
+    })).filter((item: Json) => item.id),
   };
 }
 
-function evaluateTrialEligibility(trial: NormalizedTrial): ResearchBundle["eligibility"] {
-  const status = (trial.overallStatus || "").toLowerCase();
-  const facts = [
-    `Status: ${trial.overallStatus || "Not reported"}`,
-    `Study type: ${trial.studyType || "Not reported"}`,
-    `Primary completion date: ${trial.primaryCompletionDate.value || "Not reported"} (${trial.primaryCompletionDate.type})`,
-    `Completion date: ${trial.completionDate.value || "Not reported"} (${trial.completionDate.type})`,
-    `Results posted: ${trial.hasResults ? "Yes" : "No"}`,
-  ];
+function studySnapshot(version: Json) {
+  const study = version?.study ?? version;
+  const trial = normalizeTrial(study, first(study?.protocolSection?.identificationModule?.nctId));
+  return {
+    version: version?.studyVersion,
+    status: trial.status,
+    whyStopped: trial.whyStopped,
+    enrollment: trial.enrollment,
+    enrollmentType: trial.enrollmentType,
+    primaryOutcomes: trial.primaryOutcomes.map((item: Json) => item.measure),
+    completionDate: trial.completionDate,
+  };
+}
 
-  if (!trial.nctId || !/^NCT\d{8}$/.test(trial.nctId)) {
-    return {
-      outcome: "INVALID_OR_UNRESOLVED_TRIAL",
-      reason: "The supplied record could not be resolved to a valid NCT trial.",
-      registryFacts: facts,
-      shouldInvestigate: false,
-    };
-  }
+async function retrieveHistory(nctId: string, registryUrl: string) {
+  const metadata = await getJson(`${CTG_HISTORY}/${nctId}/history`, true);
+  const changes: Json[] = metadata?.changes ?? [];
+  if (!changes.length) return { events: [] as TimelineEvent[], comparison: [], source: null as Source | null };
 
-  if (trial.studyType && trial.studyType.toLowerCase() !== "interventional") {
-    return {
-      outcome: "NON_INTERVENTIONAL_OR_NOT_APPLICABLE",
-      reason: "The record is not an interventional trial, so failure analysis is not applicable.",
-      registryFacts: facts,
-      shouldInvestigate: false,
-    };
-  }
+  const selected = [...new Set([changes[0]?.version, ...changes.filter((c, i) => i > 0 && c.status !== changes[i - 1]?.status).map((c) => c.version), changes.at(-1)?.version])]
+    .filter((value) => Number.isInteger(value)).slice(-8);
+  const versions = (await Promise.all(selected.map((version) => getJson(`${CTG_HISTORY}/${nctId}/history/${version}`, true))))
+    .filter(Boolean).map(studySnapshot);
 
-  if (["recruiting", "not yet recruiting", "active, not recruiting", "active not recruiting", "enrolling by invitation"].includes(status)) {
-    return {
-      outcome: "ONGOING",
-      reason: "The trial is still active, so it should not be treated as failed.",
-      registryFacts: facts,
-      shouldInvestigate: false,
-    };
-  }
+  const events: TimelineEvent[] = changes.map((change, index) => ({
+    id: `history-${change.version}`,
+    date: first(change.date, change.lastUpdateSubmitQcDate) || "Not reported",
+    event: index === 0
+      ? `Registry version ${change.version}: ${first(change.status) || "record created"}`
+      : `Registry version ${change.version}: ${first(change.status) || "record updated"}${list(change.moduleLabels).length ? `; changed ${list(change.moduleLabels).join(", ")}` : ""}`,
+    eventType: index === 0 ? "record created" : "registry update",
+    source: "ClinicalTrials.gov history",
+    sourceId: "ctg-history",
+    url: `${registryUrl}?format=json`,
+    scope: "trial" as const,
+  }));
 
-  const primaryCompletion = trial.primaryCompletionDate.value ? new Date(trial.primaryCompletionDate.value) : null;
-  if (primaryCompletion && Number.isFinite(primaryCompletion.getTime()) && primaryCompletion.getTime() > Date.now()) {
-    return {
-      outcome: "ONGOING",
-      reason: "The primary completion date has not yet passed.",
-      registryFacts: facts,
-      shouldInvestigate: false,
-    };
-  }
-
-  if (["terminated", "withdrawn", "suspended"].includes(status)) {
-    return {
-      outcome: "TERMINATED_OR_WITHDRAWN",
-      reason: trial.whyStopped
-        ? `The registry records why the study stopped: ${trial.whyStopped}.`
-        : "The registry shows the study stopped, but no reason was reported.",
-      registryFacts: facts,
-      shouldInvestigate: true,
-    };
-  }
-
-  if (status === "completed") {
-    if (trial.hasResults) {
-      return {
-        outcome: "RESULTS_NEGATIVE_OR_ENDPOINT_MISSED",
-        reason: "The study completed and posted results, so public evidence may support a negative or mixed outcome.",
-        registryFacts: facts,
-        shouldInvestigate: true,
-      };
-    }
-    return {
-      outcome: "COMPLETED_WITHOUT_FAILURE_EVIDENCE",
-      reason: "The trial completed, but the public record does not confirm a failure outcome.",
-      registryFacts: facts,
-      shouldInvestigate: false,
-    };
-  }
-
-  if (!trial.primaryCompletionDate.value && !trial.completionDate.value) {
-    return {
-      outcome: "INSUFFICIENT_PUBLIC_INFORMATION",
-      reason: "The public record does not provide enough lifecycle detail to support a failure investigation.",
-      registryFacts: facts,
-      shouldInvestigate: false,
-    };
-  }
-
-  if (ELIGIBLE_STATUSES.has(status)) {
-    return {
-      outcome: "ELIGIBLE_FOR_FAILURE_INVESTIGATION",
-      reason: "The record contains enough public lifecycle detail to investigate a likely failure signal.",
-      registryFacts: facts,
-      shouldInvestigate: true,
-    };
-  }
+  const comparison = versions.slice(1).flatMap((current, index) => {
+    const previous = versions[index];
+    const changed: string[] = [];
+    if (previous.status !== current.status) changed.push(`status: ${previous.status} → ${current.status}`);
+    if (previous.enrollment !== current.enrollment) changed.push(`enrollment: ${previous.enrollment ?? "not reported"} → ${current.enrollment ?? "not reported"}`);
+    if (previous.whyStopped !== current.whyStopped && current.whyStopped) changed.push(`why stopped added: ${current.whyStopped}`);
+    if (JSON.stringify(previous.primaryOutcomes) !== JSON.stringify(current.primaryOutcomes)) changed.push("primary outcome definition changed");
+    if (previous.completionDate !== current.completionDate) changed.push(`completion date: ${previous.completionDate} → ${current.completionDate}`);
+    return changed.map((change) => ({ fromVersion: previous.version, toVersion: current.version, change }));
+  });
 
   return {
-    outcome: "INSUFFICIENT_PUBLIC_INFORMATION",
-    reason: "The public record does not establish a confirmed failure outcome.",
-    registryFacts: facts,
-    shouldInvestigate: false,
+    events,
+    comparison,
+    source: {
+      id: "ctg-history", name: "ClinicalTrials.gov record history", sourceType: "registry-history" as const,
+      authority: 3, url: registryUrl, detail: `${changes.length} submitted versions compared; ${comparison.length} material changes detected.`,
+      provenanceKey: `ctg-history-${nctId}`, availability: "retrieved" as const,
+    },
   };
 }
 
-async function fetchJson(url: string) {
-  const response = await fetch(url, {
-    headers: {
-      accept: "application/json",
-      "user-agent": "WhyDidThisTrialFail/1.0",
-    },
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    throw new Error("A public data source request failed.");
-  }
-  return response.json();
-}
-
-async function fetchText(url: string) {
-  const response = await fetch(url, {
-    headers: {
-      accept: "text/xml, text/plain, application/xml",
-      "user-agent": "WhyDidThisTrialFail/1.0",
-    },
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    throw new Error("A public data source request failed.");
-  }
-  return response.text();
-}
-
-async function fetchStudy(nctId: string) {
-  const url = `${CTG_BASE}/studies/${encodeURIComponent(nctId)}`;
-  const data = await fetchJson(url);
-  return data.studies?.[0] ?? data;
-}
-
-async function searchRelatedTrials(study: CtgStudy, nctId: string) {
-  const condition = firstString(...toArray(study?.protocolSection?.conditionsModule?.conditions));
-  const intervention = firstString(
-    ...toArray(study?.protocolSection?.armsInterventionsModule?.interventions?.map((item: any) => item?.name)),
-  );
-  const query = [condition, intervention].filter(Boolean).join(" OR ");
+async function searchPubMed(terms: string[]) {
+  const query = [...new Set(terms.filter(Boolean))].slice(0, 8).map((term) => `"${term}"`).join(" OR ");
   if (!query) return [];
-
-  const url =
-    `${CTG_BASE}/studies?query.term=${encodeURIComponent(query)}` +
-    `&pageSize=5&fields=NCTId,BriefTitle,OverallStatus`;
-  let data;
-  try {
-    data = await fetchJson(url);
-  } catch {
-    return [];
-  }
-  const studies = data.studies ?? [];
-
-  return studies
-    .map((item: any) => {
-      const protocol = item.protocolSection ?? {};
-      return {
-        nctId: firstString(protocol.identificationModule?.nctId, item.nctId),
-        title: firstString(protocol.identificationModule?.briefTitle, protocol.descriptionModule?.briefSummary) || "Related study",
-        relevance: condition && intervention
-          ? `Shares the same condition or intervention context: ${[condition, intervention].filter(Boolean).join(" / ")}`
-          : "Shares the broader disease context",
-        status: firstString(protocol.statusModule?.overallStatus) || "Not reported",
-        url: `https://clinicaltrials.gov/study/${firstString(protocol.identificationModule?.nctId, item.nctId)}`,
-      };
-    })
-    .filter((item: any) => item.nctId && item.nctId !== nctId)
-    .slice(0, 4);
-}
-
-async function searchPublications(nctId: string, title: string, condition: string, intervention: string) {
-  const terms = [nctId, title, condition, intervention].filter(Boolean);
-  const esearchUrl =
-    `${PUBMED_BASE}/esearch.fcgi?db=pubmed&retmode=json&retmax=5&term=` +
-    encodeURIComponent(terms.join(" OR "));
-  let search;
-  try {
-    search = await fetchJson(esearchUrl);
-  } catch {
-    return [];
-  }
-  const pmids: string[] = search?.esearchresult?.idlist ?? [];
-  if (!pmids.length) return [];
-
-  const esummaryUrl = `${PUBMED_BASE}/esummary.fcgi?db=pubmed&retmode=json&id=${pmids.join(",")}`;
-  let summary;
-  let xml = "";
-  try {
-    summary = await fetchJson(esummaryUrl);
-  } catch {
-    return [];
-  }
-  try {
-    xml = await fetchText(`${PUBMED_BASE}/efetch.fcgi?db=pubmed&id=${pmids.join(",")}&retmode=xml`);
-  } catch {
-    xml = "";
-  }
-  const abstracts = extractTextFromXml(xml, "AbstractText");
-
-  return pmids.map((pmid, index) => {
+  const search = await getJson(`${PUBMED}/esearch.fcgi?db=pubmed&retmode=json&retmax=8&term=${encodeURIComponent(query)}`, true);
+  const ids: string[] = search?.esearchresult?.idlist ?? [];
+  if (!ids.length) return [];
+  const [summary, xml] = await Promise.all([
+    getJson(`${PUBMED}/esummary.fcgi?db=pubmed&retmode=json&id=${ids.join(",")}`, true),
+    getText(`${PUBMED}/efetch.fcgi?db=pubmed&id=${ids.join(",")}&retmode=xml`),
+  ]);
+  const abstracts = xmlValues(xml, "AbstractText");
+  return ids.map((pmid, index) => {
     const item = summary?.result?.[pmid] ?? {};
     return {
-      pmid,
-      title: firstString(item.title) || "PubMed record",
-      journal: firstString(item.fulljournalname, item.source) || "PubMed",
-      year: firstString(item.pubdate) || "Unknown year",
-      abstract: abstracts[index] ? stripMarkup(abstracts[index]) : undefined,
+      pmid, title: first(item.title) || "PubMed record", journal: first(item.fulljournalname, item.source) || "PubMed",
+      year: first(item.pubdate) || "Unknown year", abstract: abstracts[index] || undefined,
       url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
     };
   });
 }
 
-async function searchCategoryEvidence(category: FailureCategory, trial: NormalizedTrial, study: CtgStudy) {
-  const title = firstString(study?.protocolSection?.identificationModule?.briefTitle, trial.officialTitle || trial.briefTitle);
-  const sponsor = trial.sponsor || firstString(study?.protocolSection?.sponsorCollaboratorsModule?.leadSponsor?.name);
-  const whyStopped = trial.whyStopped || "";
-  const query = [title, sponsor, whyStopped, categoryPrompt(category).join(" OR ")].filter(Boolean).join(" ");
-  const condition = firstString(...toArray(study?.protocolSection?.conditionsModule?.conditions));
-  const intervention = firstString(
-    ...toArray(study?.protocolSection?.armsInterventionsModule?.interventions?.map((item: any) => item?.name)),
-  );
-  const hits = await searchPublications(trial.nctId, query, condition, intervention);
-  return hits.filter((item) => {
-    const text = `${item.title} ${item.abstract ?? ""}`.toLowerCase();
-    switch (category) {
-      case "SAFETY":
-        return includesAny(text, ["safety", "adverse", "toxicity", "dsmb", "death", "clinical hold"]);
-      case "PRIMARY_ENDPOINT":
-      case "LACK_OF_EFFICACY":
-        return includesAny(text, ["endpoint", "efficacy", "response", "hazard ratio", "pfs", "os", "orr", "p-value", "subgroup"]);
-      case "REGULATORY":
-        return includesAny(text, ["fda", "ema", "clinical hold", "approval", "inspection", "crl"]);
-      case "BUSINESS":
-        return includesAny(text, ["sec", "investor", "restructuring", "partnership", "pipeline", "financing", "layoff"]);
-      case "CMC":
-        return includesAny(text, ["manufacturing", "batch", "specification", "stability", "impurity", "quality"]);
-      case "ENROLLMENT":
-        return includesAny(text, ["enrollment", "recruitment", "accrual", "screening"]);
-      case "OPERATIONAL":
-        return includesAny(text, ["protocol", "site", "operational", "logistics", "data"]);
-      default:
-        return true;
-    }
-  }).slice(0, 4);
+async function relatedTrials(trial: ReturnType<typeof normalizeTrial>) {
+  const exact = [trial.assets[0], trial.sponsor, trial.indication[0]].filter(Boolean).join(" AND ");
+  if (!exact) return [];
+  const data = await getJson(`${CTG}/studies?query.term=${encodeURIComponent(exact)}&pageSize=10&format=json`, true);
+  return (data?.studies ?? []).map((study: Json) => {
+    const item = normalizeTrial(study, first(study?.protocolSection?.identificationModule?.nctId));
+    return {
+      nctId: item.nctId, title: item.title, status: item.status,
+      relevance: item.assets.some((asset: string) => trial.assets.includes(asset)) ? "Same asset" : "Same sponsor or indication",
+      url: `https://clinicaltrials.gov/study/${item.nctId}`,
+    };
+  }).filter((item: Json) => item.nctId && item.nctId !== trial.nctId).slice(0, 6);
 }
 
-async function runResearchAgent(nctId: string): Promise<ResearchBundle> {
-  const study = await fetchStudy(nctId);
-  const trial = normalizeTrial(study, nctId);
-  const eligibility = evaluateTrialEligibility(trial);
-  const title = firstString(study?.protocolSection?.identificationModule?.briefTitle);
-  const condition = firstString(...toArray(study?.protocolSection?.conditionsModule?.conditions));
-  const intervention = firstString(
-    ...toArray(study?.protocolSection?.armsInterventionsModule?.interventions?.map((item: any) => item?.name)),
-  );
-  const relatedTrials = await searchRelatedTrials(study, nctId);
-  const publications = await searchPublications(nctId, title, condition, intervention);
-  const failureCategory = routeFailureCategory(trial, study, publications, relatedTrials);
-  const categoryEvidence =
-    failureCategory === "UNKNOWN" || failureCategory === "NOT_A_FAILURE"
-      ? []
-      : await searchCategoryEvidence(failureCategory, trial, study);
-  const dates = {
-    startDate: trial.startDate,
-    completionDate: trial.completionDate,
-  };
-  const sourceTimestamp = trial.lastUpdatePosted;
+function normalizeCompany(value: string) {
+  return value.toLowerCase().replace(/\b(incorporated|inc|corp|corporation|limited|ltd|llc|plc|company|pharmaceuticals?|research|development)\b/g, "").replace(/[^a-z0-9]/g, "");
+}
 
+async function retrieveSec(trial: ReturnType<typeof normalizeTrial>) {
+  const notFound: Source = { id: "sec", name: "SEC EDGAR", sourceType: "sec", authority: 3, url: "https://www.sec.gov/edgar/search/", detail: "No matching public-company filing was found for the sponsor.", provenanceKey: `sec-${trial.sponsor}`, availability: "not found" };
+  const tickers = await getJson("https://www.sec.gov/files/company_tickers.json", true);
+  if (!tickers) return { source: { ...notFound, availability: "unavailable" as const }, documents: [] as Json[] };
+  const sponsorKey = normalizeCompany(trial.sponsor);
+  const companies = Object.values(tickers as Json).map((item: any) => item).filter((item: Json) => {
+    const companyKey = normalizeCompany(first(item.title));
+    return sponsorKey.length > 4 && (companyKey.includes(sponsorKey) || sponsorKey.includes(companyKey));
+  });
+  if (!companies.length) return { source: notFound, documents: [] as Json[] };
+  const company = companies[0];
+  const cik = String(company.cik_str).padStart(10, "0");
+  const submission = await getJson(`${SEC}/submissions/CIK${cik}.json`, true);
+  if (!submission) return { source: { ...notFound, availability: "unavailable" as const }, documents: [] as Json[] };
+  const recent = submission.filings?.recent ?? {};
+  const forms: string[] = recent.form ?? [];
+  const documents = forms.map((form, index) => ({
+    form, date: recent.filingDate?.[index], accession: recent.accessionNumber?.[index], document: recent.primaryDocument?.[index],
+  })).filter((item) => ["8-K", "10-K", "10-Q", "20-F", "6-K"].includes(item.form)).slice(0, 12);
+  const terms = [...trial.assets, trial.acronym, trial.nctId].filter(Boolean).map(String);
+  const matched: Json[] = [];
+  for (const filing of documents.slice(0, 6)) {
+    const accession = filing.accession.replace(/-/g, "");
+    const url = `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${accession}/${filing.document}`;
+    const filingText = cleanMarkup(await getText(url)).slice(0, 1_500_000);
+    if (terms.some((term) => filingText.toLowerCase().includes(term.toLowerCase()))) matched.push({ ...filing, url, excerpt: filingText });
+  }
   return {
-    study,
-    trial,
-    failureCategory,
-    eligibility,
-    dates,
-    sourceTimestamp,
-    relatedTrials,
-    publications,
-    registryFacts: [
-      { label: "NCT ID", value: trial.nctId },
-      { label: "Official title", value: trial.officialTitle || "Not reported" },
-      { label: "Brief title", value: trial.briefTitle || "Not reported" },
-      { label: "Overall status", value: trial.overallStatus || "Not reported" },
-      { label: "Study type", value: trial.studyType || "Not reported" },
-      { label: "Phase", value: trial.phases.join(", ") || "Not reported" },
-      { label: "Sponsor", value: trial.sponsor || "Not reported" },
-      { label: "Start date", value: `${trial.startDate.value || "Not reported"} (${trial.startDate.type})` },
-      { label: "Primary completion date", value: `${trial.primaryCompletionDate.value || "Not reported"} (${trial.primaryCompletionDate.type})` },
-      { label: "Completion date", value: `${trial.completionDate.value || "Not reported"} (${trial.completionDate.type})` },
-      { label: "Enrollment", value: trial.enrollment.count != null ? `${trial.enrollment.count} (${trial.enrollment.type})` : "Not reported" },
-      { label: "Why stopped", value: trial.whyStopped || "Not reported" },
-      { label: "Results posted", value: trial.hasResults ? "Yes" : "No" },
-    ],
-    categoryEvidence,
+    source: { ...notFound, url: `https://www.sec.gov/edgar/browse/?CIK=${cik}`, detail: matched.length ? `${matched.length} sponsor filing(s) mention the trial or asset.` : "Sponsor mapped to EDGAR; no recent filing mention was found.", availability: "retrieved" as const },
+    documents: matched,
   };
 }
 
-function makeHypotheses(
-  study: CtgStudy,
-  publications: ResearchBundle["publications"],
-  relatedTrials: ResearchBundle["relatedTrials"],
-  failureCategory: FailureCategory,
-  categoryEvidence: Array<{
-    title: string;
-    abstract?: string;
-    url: string;
-  }>,
-): Hypothesis[] {
-  const condition = firstString(...toArray(study?.protocolSection?.conditionsModule?.conditions));
-  const intervention = firstString(
-    ...toArray(study?.protocolSection?.armsInterventionsModule?.interventions?.map((item: any) => item?.name)),
-  );
-  const title = firstString(study?.protocolSection?.identificationModule?.briefTitle);
+async function retrieveFda(trial: ReturnType<typeof normalizeTrial>) {
+  const asset = trial.assets[0];
+  const relevant = Boolean(asset && asset.length > 2);
+  const base: Source = { id: "fda", name: "FDA / openFDA", sourceType: "fda", authority: 3, url: "https://www.fda.gov/drugs", detail: relevant ? "No asset-specific FDA record was found." : "No named asset was available for FDA matching.", provenanceKey: `fda-${asset || trial.nctId}`, availability: relevant ? "not found" : "not applicable" };
+  if (!relevant) return { source: base, records: [] as Json[] };
+  const query = encodeURIComponent(`openfda.generic_name:"${asset}"+openfda.brand_name:"${asset}"`);
+  const data = await getJson(`${OPEN_FDA}/drug/label.json?search=${query}&limit=5`, true);
+  const records = data?.results ?? [];
+  return { source: records.length ? { ...base, url: `https://open.fda.gov/apis/drug/label/`, detail: `${records.length} asset-name label record(s) found; reviewed for regulatory and safety context.`, availability: "retrieved" as const } : base, records };
+}
 
-  const evidenceForSelection = [
-    {
-      category: "registry_fact" as const,
-      sourceType: "clinicaltrials",
-      citation: `Registration record for ${firstString(study?.protocolSection?.identificationModule?.nctId)}`,
-      claim: `The trial appears to have enrolled a broader ${condition || "population"} without a clearly biomarker-enriched gate.`,
-      url: `https://clinicaltrials.gov/study/${firstString(study?.protocolSection?.identificationModule?.nctId)}`,
-    },
-    ...publications.slice(0, 1).map((publication: any) => ({
-      category: "source_reported_fact" as const,
-      sourceType: "pubmed",
-      citation: publication.title,
-      claim: "Public publication signals may have concentrated benefit in a narrower subgroup.",
-      url: publication.url,
-    })),
-  ];
+function retrieveCtis(trial: ReturnType<typeof normalizeTrial>) {
+  const eu = trial.secondaryIds.find((item: Json) => /EUDRACT|EU TRIAL/i.test(item.type));
+  const url = eu ? `https://euclinicaltrials.eu/search-for-clinical-trials/?lang=en&EUCT=${encodeURIComponent(eu.id)}` : "https://euclinicaltrials.eu/search-for-clinical-trials/";
+  const source: Source = {
+    id: "ctis", name: "EU CTIS / EU Clinical Trials", sourceType: "ctis", authority: 3, url,
+    detail: eu ? `EU identifier ${eu.id} mapped from the registry. CTIS does not provide an anonymous public search API, so the linked EU record is supplied without claiming retrieved findings.` : "No EU trial identifier was present in the ClinicalTrials.gov record.",
+    provenanceKey: `ctis-${eu?.id || trial.nctId}`, availability: eu ? "not found" : "not applicable",
+  };
+  return { source, euId: eu?.id ?? null };
+}
 
-  const evidenceForEndpoint = [
-    {
-      category: "registry_fact" as const,
-      sourceType: "clinicaltrials",
-      citation: `Primary objective for ${title || "the study"}`,
-      claim: "The trial appears to have used a harder efficacy bar than the public evidence base could support.",
-      url: `https://clinicaltrials.gov/study/${firstString(study?.protocolSection?.identificationModule?.nctId)}`,
-    },
-  ];
+const CATEGORY_TERMS: Record<FailureCategory, string[]> = {
+  safety: ["safety", "toxicity", "adverse event", "serious adverse", "death", "dsmb", "benefit-risk", "liver enzyme", "hepatotoxic"],
+  efficacy: ["lack of efficacy", "futility", "insufficient efficacy", "no clinical benefit"],
+  "primary endpoint": ["primary endpoint", "did not meet", "failed to meet", "p-value", "hazard ratio"],
+  enrollment: ["enrollment", "recruitment", "accrual", "unable to recruit"],
+  operational: ["operational", "site closure", "logistics", "data quality", "protocol deviation"],
+  "protocol design": ["protocol design", "endpoint changed", "eligibility amended", "design limitation"],
+  regulatory: ["fda", "ema", "clinical hold", "complete response letter", "inspection", "regulatory"],
+  "CMC/manufacturing": ["manufacturing", "batch", "stability", "impurity", "quality control", "cmc"],
+  funding: ["funding", "financing", "cash runway", "budget"],
+  "commercial strategy": ["commercial", "market opportunity", "strategic alternative"],
+  "portfolio prioritization": ["portfolio priorit", "pipeline priorit", "repriorit", "discontinued development"],
+  "partner decision": ["partner termination", "collaboration terminated", "returned rights", "license terminated"],
+  unknown: [],
+  "not a failure": [],
+};
 
-  const evidenceForComparator = relatedTrials.slice(0, 2).map((item: any) => ({
-    category: "registry_fact" as const,
-    sourceType: "clinicaltrials",
-    citation: item.title,
-    claim: `Similar public programs in ${condition || "this disease area"} used different designs or later status updates.`,
-    url: item.url,
+function classifyText(value: string): FailureCategory[] {
+  return (Object.entries(CATEGORY_TERMS) as Array<[FailureCategory, string[]]>)
+    .filter(([category, terms]) => !["unknown", "not a failure"].includes(category) && has(value, terms))
+    .map(([category]) => category);
+}
+
+function strength(score: number, documented: boolean): EvidenceStrength {
+  if (documented && score >= 9) return "DIRECTLY DOCUMENTED";
+  if (score >= 11) return "STRONG PUBLIC EVIDENCE";
+  if (score >= 8) return "MODERATE PUBLIC EVIDENCE";
+  if (score >= 5) return "LIMITED PUBLIC EVIDENCE";
+  if (score >= 3) return "SPECULATIVE";
+  return "INSUFFICIENT EVIDENCE";
+}
+
+function expectedTests(category: FailureCategory, corpus: string) {
+  const tests: Record<FailureCategory, string[]> = {
+    safety: ["registry stop reason or sponsor safety statement", "adverse-event, DSMB, hold, or death evidence"],
+    efficacy: ["sponsor efficacy or futility statement", "reported efficacy result"],
+    "primary endpoint": ["explicit primary-endpoint result", "effect estimate or statistical result"],
+    enrollment: ["explicit accrual or recruitment statement", "enrollment target revision or shortfall"],
+    operational: ["explicit execution or site statement", "registry amendment consistent with the issue"],
+    "protocol design": ["documented design limitation", "material outcome or eligibility amendment"],
+    regulatory: ["FDA, EMA, or sponsor regulatory statement", "hold, CRL, inspection, or formal action"],
+    "CMC/manufacturing": ["sponsor or regulator manufacturing statement", "batch, quality, stability, or supply evidence"],
+    funding: ["SEC or sponsor financing statement", "program-specific budget or runway evidence"],
+    "commercial strategy": ["sponsor commercial-strategy statement", "asset-specific market rationale"],
+    "portfolio prioritization": ["sponsor portfolio statement", "asset-specific discontinuation or deprioritization"],
+    "partner decision": ["partner or sponsor termination statement", "asset-specific rights or collaboration change"],
+    unknown: ["trial-specific documented reason"],
+    "not a failure": ["active or successfully completed status"],
+  };
+  return tests[category].map((test) => ({
+    test,
+    status: has(corpus, CATEGORY_TERMS[category]) ? "found" as const : "not found" as const,
+    note: has(corpus, CATEGORY_TERMS[category]) ? "A matching trial/program-specific signal was retrieved." : "Not found in the retrieved public sources; this is not proof that it does not exist.",
   }));
-
-  return [
-    {
-      id: "H1",
-      label:
-        failureCategory === "SAFETY"
-          ? "Safety signal emerged"
-          : failureCategory === "PRIMARY_ENDPOINT"
-            ? "Primary endpoint was missed"
-            : failureCategory === "LACK_OF_EFFICACY"
-              ? "Public evidence points to low efficacy"
-              : failureCategory === "REGULATORY"
-                ? "Regulatory issue surfaced"
-                : failureCategory === "ENROLLMENT"
-                  ? "Enrollment stalled"
-                  : failureCategory === "BUSINESS"
-                    ? "Business priorities changed"
-                    : failureCategory === "CMC"
-                      ? "CMC issue surfaced"
-                      : failureCategory === "OPERATIONAL"
-                        ? "Operational friction accumulated"
-                        : "Evidence remains mixed",
-      evidenceStrength:
-        failureCategory === "SAFETY" || failureCategory === "REGULATORY"
-          ? "STRONG PUBLIC EVIDENCE"
-          : publications.length
-            ? "MODERATE PUBLIC EVIDENCE"
-            : "LIMITED PUBLIC EVIDENCE",
-      statement:
-        failureCategory === "SAFETY"
-          ? "Public evidence points to a safety-related stop or a safety concern that outweighed continuation."
-          : failureCategory === "PRIMARY_ENDPOINT"
-            ? "Public evidence points to a missed primary endpoint."
-            : failureCategory === "LACK_OF_EFFICACY"
-              ? "Public evidence points to insufficient efficacy to justify continuation."
-              : failureCategory === "REGULATORY"
-                ? "Public evidence points to a regulatory or manufacturing barrier rather than a simple efficacy miss."
-                : failureCategory === "ENROLLMENT"
-                  ? "Public evidence points to insufficient enrollment or slow accrual as the proximate issue."
-                  : failureCategory === "BUSINESS"
-                    ? "Public evidence points to a business decision that changed the program's path."
-                    : failureCategory === "CMC"
-                      ? "Public evidence points to a chemistry, manufacturing, or controls issue."
-                      : failureCategory === "OPERATIONAL"
-                        ? "Public evidence points to execution problems that limited the study."
-                        : "The available public record does not support one clean explanation without more evidence.",
-      whyItMatters:
-        failureCategory === "SAFETY"
-          ? "Safety findings can stop a program even when the biology is promising."
-          : failureCategory === "PRIMARY_ENDPOINT"
-            ? "A missed primary endpoint is the clearest efficacy-type failure."
-            : failureCategory === "LACK_OF_EFFICACY"
-              ? "A weak efficacy signal can end a program even without a formal endpoint miss."
-              : failureCategory === "REGULATORY"
-                ? "Regulatory setbacks can halt development even when the trial design is sound."
-                : failureCategory === "ENROLLMENT"
-                  ? "A study can fail operationally before efficacy is fully tested."
-                  : failureCategory === "BUSINESS"
-                    ? "Programs can stop for strategic reasons unrelated to trial data."
-                    : failureCategory === "CMC"
-                      ? "Manufacturing issues can derail a program independently of clinical outcome."
-                      : failureCategory === "OPERATIONAL"
-                        ? "Execution issues can obscure whether the therapy itself worked."
-                        : "Without category-specific evidence, the explanation should remain cautious.",
-      evidence: failureCategory === "SAFETY"
-        ? categoryEvidence.length
-          ? categoryEvidence.map((item) => ({
-              category: "source_reported_fact" as const,
-              sourceType: "public-source",
-              citation: item.title,
-              claim: item.abstract
-                ? item.abstract.slice(0, 220)
-                : "Category-specific safety evidence surfaced in the public record.",
-              url: item.url,
-            }))
-          : evidenceForSelection.filter((item) => !containsGenericExplanation(item.claim))
-        : failureCategory === "REGULATORY"
-          ? evidenceForEndpoint
-          : failureCategory === "ENROLLMENT"
-            ? evidenceForComparator
-            : failureCategory === "BUSINESS"
-              ? evidenceForComparator
-              : failureCategory === "CMC"
-                ? evidenceForEndpoint
-                : failureCategory === "OPERATIONAL"
-                  ? evidenceForComparator
-                  : failureCategory === "PRIMARY_ENDPOINT"
-                    ? evidenceForEndpoint
-                    : evidenceForSelection,
-      counterevidence: publications.slice(1, 2).map((publication: any) => ({
-        citation: publication.title,
-        claim: "Additional public context exists, but it does not overturn the routed category.",
-        url: publication.url,
-      })),
-    },
-    {
-      id: "H2",
-      label: "Target biology or dose strategy was not strong enough",
-      evidenceStrength: publications.length > 1 ? "LIMITED PUBLIC EVIDENCE" : "SPECULATIVE",
-      statement:
-        failureCategory === "SAFETY"
-          ? "The public record does not support a generic efficacy explanation because the stronger signal is safety-related."
-          : "This fallback hypothesis should only appear when the routed category is still not fully resolved.",
-      whyItMatters:
-        failureCategory === "SAFETY"
-          ? "A safety-driven stop should not be relabeled as a target problem."
-          : "Fallback explanations should not replace category-specific evidence.",
-      evidence: [
-        {
-          category: "source_reported_fact",
-          sourceType: "pubmed",
-          citation: publications[0]?.title ?? "PubMed search result",
-          claim: `The public literature gives at least some rationale for testing ${intervention || "the intervention"}.`,
-          url: publications[0]?.url ?? `https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(intervention || title || condition)}`,
-        },
-      ],
-      counterevidence: relatedTrials.slice(0, 1).map((item: any) => ({
-        citation: item.title,
-        claim: "The field may have shifted the design rather than abandoning the biology outright.",
-        url: item.url,
-      })),
-    },
-    {
-      id: "H3",
-      label: "Endpoint or comparator bar was too high",
-      evidenceStrength: relatedTrials.length ? "LIMITED PUBLIC EVIDENCE" : "INSUFFICIENT EVIDENCE",
-      statement:
-        failureCategory === "SAFETY"
-          ? "No generic comparator explanation is used because the public record points to a safety event."
-          : "Comparator explanations require category-specific evidence and should not be used as filler.",
-      whyItMatters:
-        failureCategory === "SAFETY"
-          ? "A safety stop should not be collapsed into a design critique."
-          : "Generic comparator claims are blocked unless the evidence supports them.",
-      evidence: evidenceForComparator.length ? evidenceForComparator : evidenceForEndpoint,
-      counterevidence: [],
-    },
-  ];
 }
 
-function makeBottomLine(
-  study: CtgStudy,
-  publications: ResearchBundle["publications"],
-  relatedTrials: ResearchBundle["relatedTrials"],
-  failureCategory: FailureCategory,
-) {
-  const status = getStatus(study);
-  const title = firstString(study?.protocolSection?.identificationModule?.briefTitle);
-  const condition = firstString(...toArray(study?.protocolSection?.conditionsModule?.conditions));
-  if (failureCategory === "NOT_A_FAILURE" || failureCategory === "UNKNOWN") {
-    return "There is insufficient public evidence to determine why this trial failed.";
-  }
-  if (failureCategory === "SAFETY") {
-    return `The public record suggests a safety-related stop for ${title || "this trial"} in ${condition || "the target disease area"}, with the strongest available signals centered on adverse events, toxicity, or a clinical hold rather than a generic efficacy miss.`;
-  }
-  if (failureCategory === "PRIMARY_ENDPOINT") {
-    return `The public record suggests ${title || "this trial"} missed its primary endpoint in ${condition || "the target disease area"}, making this the clearest efficacy-type failure mode.`;
-  }
-  if (failureCategory === "LACK_OF_EFFICACY") {
-    return `The public record suggests ${title || "this trial"} did not show enough efficacy to justify continuation, but the evidence is weaker than a direct missed-endpoint report.`;
-  }
-  if (failureCategory === "REGULATORY") {
-    return `The public record suggests a regulatory or manufacturing barrier affected ${title || "this trial"}, which is more consistent with an external development constraint than a biological failure.`;
-  }
-  if (failureCategory === "ENROLLMENT") {
-    return `The public record suggests ${title || "this trial"} ran into an enrollment problem in ${condition || "the target disease area"}, so the stop looks operational rather than mechanistic.`;
-  }
-  if (failureCategory === "BUSINESS") {
-    return `The public record suggests business priorities changed for ${title || "this trial"}, so the stop should not be interpreted as a pure efficacy readout.`;
-  }
-  if (failureCategory === "CMC") {
-    return `The public record suggests a chemistry, manufacturing, or controls issue affected ${title || "this trial"}, which can stop development even when the clinical hypothesis remains plausible.`;
-  }
-  if (failureCategory === "OPERATIONAL") {
-    return `The public record suggests execution issues affected ${title || "this trial"}, and the available evidence does not support a more specific causal claim.`;
-  }
-  const lead =
-    publications.length > 0
-      ? "The public evidence points to a mixed clinical story rather than a single clean cause."
-      : "The public record is thin, so the app is relying on trial structure and related-program context.";
-  return `${lead} For ${title || "this trial"} in ${condition || "the target disease area"}, the current evidence does not justify a generic explanation.`;
-}
-
-function runReasoningAgent(bundle: ResearchBundle) {
-  const study = bundle.study;
-  const publications = bundle.publications;
-  const relatedTrials = bundle.relatedTrials;
-  const failureCategory = bundle.failureCategory;
-  const hypotheses = makeHypotheses(study, publications, relatedTrials, failureCategory, bundle.categoryEvidence);
-  const bottomLine = makeBottomLine(study, publications, relatedTrials, failureCategory);
-  const evidenceModel = {
-    directFacts: 10 + publications.length,
-    derivedFacts: 4 + relatedTrials.length,
-    inferences: 3,
-    unsupportedClaims: 0,
-  };
-
-  const signals = [
-    publications.length > 0 ? "publication signal present" : "publication trail is thin",
-    relatedTrials.length > 0 ? "related-trial comparator context found" : "few comparator signals found",
-    firstString(study?.protocolSection?.conditionsModule?.conditions) ? "condition identified" : "condition unclear",
-  ];
-
-  return { hypotheses, bottomLine, evidenceModel, signals };
-}
-
-function runJudgeAgent(input: {
-  trial: NormalizedTrial;
-  eligibility: ResearchBundle["eligibility"];
-  hypotheses: Hypothesis[];
-  bottomLine: string;
-  evidenceModel: {
-    directFacts: number;
-    derivedFacts: number;
-    inferences: number;
-    unsupportedClaims: number;
-  };
-  publications: ResearchBundle["publications"];
-  relatedTrials: ResearchBundle["relatedTrials"];
+function buildClaims(input: {
+  trial: ReturnType<typeof normalizeTrial>; publications: Json[]; history: Awaited<ReturnType<typeof retrieveHistory>>;
+  sec: Awaited<ReturnType<typeof retrieveSec>>; fda: Awaited<ReturnType<typeof retrieveFda>>;
 }) {
-  const hasThinEvidence = input.publications.length === 0 && input.relatedTrials.length <= 1;
-  const verdict: EvidenceStrength = hasThinEvidence
-    ? "INSUFFICIENT EVIDENCE"
-    : input.publications.length >= 2 || input.relatedTrials.length >= 2
-      ? "MODERATE PUBLIC EVIDENCE"
-      : "LIMITED PUBLIC EVIDENCE";
-
-  const hypotheses = input.hypotheses
-    .filter((hypothesis) => hypothesis.evidence.some((item) => item.url.includes(input.trial.nctId) || item.category !== "hypothesis"))
-    .map((hypothesis) => {
-      if (hasThinEvidence && hypothesis.evidenceStrength === "MODERATE PUBLIC EVIDENCE") {
-        return { ...hypothesis, evidenceStrength: "LIMITED PUBLIC EVIDENCE" as const };
-      }
-      return hypothesis;
+  const { trial, publications, history, sec, fda } = input;
+  const claims: Claim[] = [];
+  const add = (partial: Omit<Claim, "id">) => claims.push({ id: `claim-${claims.length + 1}`, ...partial });
+  if (trial.whyStopped) {
+    for (const category of classifyText(trial.whyStopped)) add({
+      text: `ClinicalTrials.gov states: “${trial.whyStopped}”`, kind: "documented cause", relation: "direct support", category,
+      sourceId: "ctg-current", sourceAuthority: 3, directness: 3, trialSpecificity: 3, temporalRelevance: 2,
+      entityIds: ["trial", "asset", "sponsor"],
     });
+  }
+  for (const change of history.comparison) {
+    const categories = classifyText(change.change);
+    for (const category of categories) add({
+      text: change.change, kind: "observation", relation: "indirect support", category, sourceId: "ctg-history",
+      sourceAuthority: 3, directness: 1, trialSpecificity: 3, temporalRelevance: 2, entityIds: ["trial"],
+    });
+  }
+  for (const publication of publications) {
+    const corpus = `${publication.title} ${publication.abstract ?? ""}`;
+    for (const category of classifyText(corpus)) add({
+      text: publication.abstract?.slice(0, 360) || publication.title, kind: "observation", relation: "indirect support", category,
+      sourceId: `pubmed-${publication.pmid}`, sourceAuthority: 2, directness: has(corpus, [trial.nctId, trial.acronym ?? ""]) ? 2 : 1,
+      trialSpecificity: has(corpus, [trial.nctId, trial.title, trial.acronym ?? ""]) ? 3 : trial.assets.some((asset) => has(corpus, [asset])) ? 2 : 1,
+      temporalRelevance: 1, entityIds: ["trial", "asset"],
+    });
+  }
+  for (const filing of sec.documents) {
+    const excerpt = filing.excerpt ?? "";
+    for (const category of classifyText(excerpt)) add({
+      text: `Sponsor filing ${filing.form} filed ${filing.date} contains trial/asset-specific ${category} language.`,
+      kind: "observation", relation: "direct support", category, sourceId: `sec-${filing.accession}`,
+      sourceAuthority: 3, directness: 2, trialSpecificity: has(excerpt, [trial.nctId, trial.acronym ?? ""]) ? 3 : 2,
+      temporalRelevance: 2, entityIds: ["program", "asset", "sponsor"],
+    });
+  }
+  for (const record of fda.records) {
+    const corpus = text([record.boxed_warning, record.warnings, record.adverse_reactions, record.recent_major_changes]);
+    for (const category of classifyText(corpus)) add({
+      text: "An asset-name FDA label record contains relevant safety or regulatory language; it does not by itself explain the trial outcome.",
+      kind: "association", relation: "indirect support", category, sourceId: "fda", sourceAuthority: 3,
+      directness: 1, trialSpecificity: 1, temporalRelevance: 1, entityIds: ["asset"],
+    });
+  }
+  return claims;
+}
 
-  const limitations = [
-    "Public APIs do not prove causality; they support ranked hypotheses.",
-    "If a study has sparse publication history, conclusions stay conservative.",
-    "Some registry fields are incomplete or change over time.",
-    "The app only investigates when the registry record supports a plausible failure signal.",
+function evaluateCandidates(claims: Claim[], sources: Source[], trial: ReturnType<typeof normalizeTrial>) {
+  const categories = [...new Set(claims.map((claim) => claim.category).filter(Boolean))] as FailureCategory[];
+  const candidates: Candidate[] = [];
+  for (const category of categories) {
+    const support = claims.filter((claim) => claim.category === category && claim.relation !== "contradiction");
+    const contradictions = claims.filter((claim) => claim.category === category && claim.relation === "contradiction");
+    // Asset-level evidence can describe the program, but cannot establish why this trial failed.
+    const trialSpecific = support.filter((claim) => claim.trialSpecificity === 3);
+    if (!trialSpecific.length) continue;
+    const provenance = new Set(support.map((claim) => sources.find((source) => source.id === claim.sourceId)?.provenanceKey ?? claim.sourceId));
+    const best = [...support].sort((a, b) => (b.sourceAuthority + b.directness + b.trialSpecificity + b.temporalRelevance) - (a.sourceAuthority + a.directness + a.trialSpecificity + a.temporalRelevance))[0];
+    const independent = Math.min(2, Math.max(0, provenance.size - 1));
+    const contradictionPenalty = Math.max(-3, -contradictions.length);
+    const score = best.sourceAuthority + best.directness + best.trialSpecificity + independent + best.temporalRelevance + contradictionPenalty;
+    const documented = support.some((claim) => claim.kind === "documented cause");
+    const corpus = support.map((claim) => claim.text).join(" ");
+    candidates.push({
+      category,
+      claimKind: documented ? "documented cause" : score >= 8 ? "primary-cause hypothesis" : "contributor hypothesis",
+      statement: documented
+        ? `${category} is documented as the reason this trial stopped.`
+        : `${category} is supported as a possible ${score >= 8 ? "primary explanation" : "contributor"}, but is not documented as the cause.`,
+      evidenceStrength: strength(score, documented), evidence: support, contradictions,
+      expectedEvidence: expectedTests(category, `${corpus} ${trial.whyStopped ?? ""}`), score,
+    });
+  }
+  return candidates.sort((a, b) => b.score - a.score);
+}
+
+function trialOutcome(trial: ReturnType<typeof normalizeTrial>) {
+  const status = trial.status.toLowerCase();
+  if (["recruiting", "not yet recruiting", "active, not recruiting", "enrolling by invitation"].includes(status)) return { classification: "not a failure" as FailureCategory, statement: "The registry describes this trial as ongoing; it is not treated as a failure." };
+  if (["terminated", "withdrawn", "suspended"].includes(status)) return { classification: "stopped", statement: `The trial-level outcome is ${trial.status.toLowerCase()}${trial.whyStopped ? `; the registry reports: ${trial.whyStopped}` : "."}` };
+  if (status === "completed") return { classification: "completed", statement: trial.hasResults ? "The trial completed and has posted results; completion alone is not a failure." : "The trial completed; the retrieved record does not establish failure." };
+  return { classification: "unclear", statement: "The trial-level outcome is not clearly established by the retrieved record." };
+}
+
+function programOutcome(trial: ReturnType<typeof normalizeTrial>, related: Json[], secDocuments: Json[]) {
+  const active = related.filter((item) => /recruiting|active|not yet recruiting/i.test(item.status));
+  const discontinued = secDocuments.some((item) => has(item.excerpt ?? "", ["discontinued development", "terminated", "reprioritized", "returned rights"]));
+  if (discontinued) return { classification: "program stopped", statement: "A sponsor filing contains asset/program discontinuation language." };
+  if (active.length) return { classification: "program continues", statement: `${active.length} related asset/program trial(s) remain active; this trial outcome should not be equated with program failure.` };
+  return { classification: "not established", statement: "The retrieved public evidence does not establish whether the broader asset/program continued or stopped." };
+}
+
+function conciseTimeline(events: TimelineEvent[], trial: ReturnType<typeof normalizeTrial>, publications: Json[]) {
+  const registryUrl = `https://clinicaltrials.gov/study/${trial.nctId}`;
+  const anchors: TimelineEvent[] = [
+    { id: "trial-start", date: trial.startDate, event: "Trial start", eventType: "trial start", source: "ClinicalTrials.gov", sourceId: "ctg-current", url: registryUrl, scope: "trial" },
+    ...events.filter((event, index) => index === 0 || /TERMINATED|WITHDRAWN|SUSPENDED|COMPLETED|why stopped/i.test(event.event)),
+    ...publications.slice(0, 2).map((publication) => ({ id: `publication-${publication.pmid}`, date: publication.year, event: `Publication: ${publication.title}`, eventType: "publication", source: "PubMed", sourceId: `pubmed-${publication.pmid}`, url: publication.url, scope: "program" as const })),
+    { id: "last-update", date: trial.lastUpdate, event: `Latest registry status: ${trial.status}`, eventType: "latest registry update", source: "ClinicalTrials.gov", sourceId: "ctg-current", url: registryUrl, scope: "trial" },
   ];
+  return [...new Map(anchors.filter((event) => event.date !== "Not reported").map((event) => [`${event.date}-${event.event}`, event])).values()]
+    .sort((a, b) => Date.parse(a.date) - Date.parse(b.date)).slice(0, 8);
+}
 
-  const workflow: WorkflowStep[] = [
-    {
-      name: "Research agent",
-      status: "done",
-      summary: `Collected the registry record, related trials, and PubMed context after the ${input.eligibility.outcome} gate.`,
-      signals: input.publications.length > 0 ? ["PubMed hits found"] : ["No PubMed hits found"],
-    },
-    {
-      name: "Reasoning agent",
-      status: "done",
-      summary: "Converted the evidence into trial-specific hypotheses only after the gate passed.",
-      signals: input.hypotheses.map((hypothesis) => hypothesis.label),
-    },
-    {
-      name: "Judge agent",
-      status: "done",
-      summary: "Checked for overclaiming, removed weak claims, and downgraded unsupported conclusions.",
-      signals: hasThinEvidence ? ["Evidence downgraded"] : ["Evidence preserved"],
-    },
-  ];
-
-  return { verdict, hypotheses, limitations, workflow };
+function hypothesisView(candidate: Candidate, sources: Source[]) {
+  const evidence = candidate.evidence.slice(0, 4).map((claim) => {
+    const source = sources.find((item) => item.id === claim.sourceId);
+    return {
+      category: claim.kind === "documented cause" ? "registry_fact" : claim.kind === "observation" ? "source_reported_fact" : "inference",
+      sourceType: source?.name ?? claim.sourceId, citation: source?.detail ?? claim.text, claim: claim.text,
+      url: source?.url ?? "#", relation: claim.relation, claimKind: claim.kind,
+    };
+  });
+  return {
+    id: `candidate-${candidate.category.replace(/\W+/g, "-")}`, label: candidate.category,
+    evidenceStrength: candidate.evidenceStrength, statement: candidate.statement,
+    whyItMatters: candidate.expectedEvidence.some((test) => test.status === "not found")
+      ? "Some expected category-specific evidence was not found, so the conclusion remains limited."
+      : "The expected category-specific evidence was found in the retrieved public record.",
+    evidence,
+    counterevidence: candidate.contradictions.map((claim) => ({ citation: claim.sourceId, claim: claim.text, url: sources.find((source) => source.id === claim.sourceId)?.url ?? "#" })),
+    expectedEvidence: candidate.expectedEvidence,
+    claimKind: candidate.claimKind,
+  };
 }
 
 export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const nctId = (url.searchParams.get("nctId") ?? "").trim().toUpperCase();
-  if (!/^NCT\d{8}$/.test(nctId)) {
-    return NextResponse.json(
-      { error: "Provide a valid NCT ID like NCT01234567." },
-      { status: 400 },
-    );
-  }
+  const nctId = (new URL(request.url).searchParams.get("nctId") ?? "").trim().toUpperCase();
+  if (!/^NCT\d{8}$/.test(nctId)) return NextResponse.json({ error: "Provide a valid NCT ID." }, { status: 400 });
 
   try {
-    const research = await runResearchAgent(nctId);
-    const study = research.study;
-    const title = firstString(study?.protocolSection?.identificationModule?.briefTitle);
-    const registryLink = `https://clinicaltrials.gov/study/${nctId}`;
+    const study = await getJson(`${CTG}/studies/${nctId}`);
+    const trial = normalizeTrial(study?.studies?.[0] ?? study, nctId);
+    const registryUrl = `https://clinicaltrials.gov/study/${nctId}`;
+    const historyPromise = retrieveHistory(nctId, registryUrl);
+    const publicationsPromise = searchPubMed([nctId, trial.acronym ?? "", trial.title, ...trial.assets]);
+    const relatedPromise = relatedTrials(trial);
+    const secPromise = retrieveSec(trial);
+    const fdaPromise = retrieveFda(trial);
+    const ctis = retrieveCtis(trial);
+    const [history, publications, related, sec, fda] = await Promise.all([historyPromise, publicationsPromise, relatedPromise, secPromise, fdaPromise]);
 
-    if (!research.eligibility.shouldInvestigate) {
-      const response = {
-        nctId,
-        fetchedAt: new Date().toISOString(),
-        sourceTimestamp: research.sourceTimestamp,
-        overview: {
-          title: title || "Untitled study",
-          status: getStatus(study),
-          phase: getPhase(study),
-          condition: toArray(study?.protocolSection?.conditionsModule?.conditions),
-          intervention: toArray(
-            study?.protocolSection?.armsInterventionsModule?.interventions?.map((item: any) => item?.name),
-          ),
-          sponsor: getSponsor(study),
-          target: getTarget(study),
-          primaryObjective: getPrimaryObjective(study),
-          startDate: research.dates.startDate.value || undefined,
-          startDateType: research.dates.startDate.type,
-          completionDate: research.dates.completionDate.value || undefined,
-          completionDateType: research.dates.completionDate.type,
-          locationsCount: getLocationsCount(study),
-        },
-        eligibility: research.eligibility,
-        bottomLine: "No confirmed trial failure was identified in the public record.",
-        verdict: "INSUFFICIENT EVIDENCE",
-        hypotheses: [],
-        timeline: [
-          {
-            date: research.dates.startDate.value || "Not reported",
-            event: "Trial start entered in the public record",
-            source: "ClinicalTrials.gov",
-            url: registryLink,
-          },
-          {
-            date: research.sourceTimestamp || "Not reported",
-            event: "Latest public update captured from the registry",
-            source: "ClinicalTrials.gov",
-            url: registryLink,
-          },
-        ],
-        relatedTrials: research.relatedTrials,
-        publications: research.publications,
-        limitations: [
-          ...research.eligibility.registryFacts,
-          "The registry gate did not support a public failure investigation.",
-          "This result deliberately avoids causal claims when the public evidence is incomplete.",
-        ],
-        evidenceModel: {
-          directFacts: research.registryFacts.length,
-          derivedFacts: 0,
-          inferences: 0,
-          unsupportedClaims: 0,
-        },
-        workflow: [
-          {
-            name: "Eligibility gate",
-            status: "done",
-            summary: research.eligibility.reason,
-            signals: research.eligibility.registryFacts,
-          },
-        ],
-        agentSummary: research.eligibility.registryFacts,
-        sources: [
-          {
-            name: "ClinicalTrials.gov",
-            detail: "Registry record for design, status, outcomes, and lifecycle updates.",
-            url: registryLink,
-          },
-          {
-            name: "ClinicalTrials.gov API version",
-            detail: "Dataset timestamp used to know when registry data was refreshed.",
-            url: `${CTG_BASE}/version`,
-          },
-        ],
-        registryFacts: research.registryFacts,
-      };
+    const sources: Source[] = [
+      { id: "ctg-current", name: "ClinicalTrials.gov", sourceType: "registry", authority: 3, url: registryUrl, date: trial.lastUpdate, detail: "Current trial registration and posted-results record.", provenanceKey: `ctg-${nctId}`, availability: "retrieved" },
+      ...(history.source ? [history.source] : []),
+      ...publications.map((publication) => ({ id: `pubmed-${publication.pmid}`, name: "PubMed", sourceType: "publication" as const, authority: 2, url: publication.url, date: publication.year, detail: publication.title, provenanceKey: sourceFingerprint(`${publication.title} ${publication.abstract ?? ""}`), availability: "retrieved" as const })),
+      sec.source, fda.source, ctis.source,
+    ];
+    for (const filing of sec.documents) sources.push({ id: `sec-${filing.accession}`, name: `SEC ${filing.form}`, sourceType: "sec", authority: 3, url: filing.url, date: filing.date, detail: `Sponsor filing ${filing.form}`, provenanceKey: sourceFingerprint(filing.excerpt ?? filing.accession), availability: "retrieved" });
 
-      return NextResponse.json(response, {
-        headers: {
-          "cache-control": "no-store",
-        },
-      });
-    }
+    const claims = buildClaims({ trial, publications, history, sec, fda });
+    const candidates = evaluateCandidates(claims, sources, trial);
+    const outcome = trialOutcome(trial);
+    const program = programOutcome(trial, related, sec.documents);
+    const isNotFailure = outcome.classification === "not a failure" || (outcome.classification === "completed" && !trial.whyStopped);
+    const hypotheses = isNotFailure ? [] : candidates.map((candidate) => hypothesisView(candidate, sources));
+    const lead = candidates[0];
+    const bottomLine = isNotFailure
+      ? "No confirmed trial failure was identified in the public record."
+      : lead && ["DIRECTLY DOCUMENTED", "STRONG PUBLIC EVIDENCE", "MODERATE PUBLIC EVIDENCE", "LIMITED PUBLIC EVIDENCE"].includes(lead.evidenceStrength)
+        ? `${outcome.statement} Evidence finding — ${lead.statement} ${program.statement}`
+        : INSUFFICIENT;
+    const verdict: EvidenceStrength = isNotFailure ? "INSUFFICIENT EVIDENCE" : lead?.evidenceStrength ?? "INSUFFICIENT EVIDENCE";
+    const timeline = conciseTimeline(history.events, trial, publications);
+    const evidenceMatrix = (isNotFailure ? [] : candidates).slice(0, 6).map((candidate) => ({
+      category: candidate.category, claimKind: candidate.claimKind, evidenceStrength: candidate.evidenceStrength,
+      directSupport: candidate.evidence.filter((claim) => claim.relation === "direct support").length,
+      indirectSupport: candidate.evidence.filter((claim) => claim.relation === "indirect support").length,
+      contradictions: candidate.contradictions.length,
+      missingExpectedEvidence: candidate.expectedEvidence.filter((test) => test.status === "not found").length,
+      sourceFamilies: new Set(candidate.evidence.map((claim) => sources.find((source) => source.id === claim.sourceId)?.provenanceKey)).size,
+    }));
 
-    const reasoning = runReasoningAgent(research);
-    const judge = runJudgeAgent({
-      trial: research.trial,
-      eligibility: research.eligibility,
-      hypotheses: reasoning.hypotheses,
-      bottomLine: reasoning.bottomLine,
-      evidenceModel: reasoning.evidenceModel,
-      publications: research.publications,
-      relatedTrials: research.relatedTrials,
-    });
-
-    const response = {
-      nctId,
-      fetchedAt: new Date().toISOString(),
-      sourceTimestamp: research.sourceTimestamp,
+    return NextResponse.json({
+      nctId, fetchedAt: new Date().toISOString(), sourceTimestamp: trial.lastUpdate,
       overview: {
-        title: title || "Untitled study",
-        status: getStatus(study),
-        phase: getPhase(study),
-        condition: toArray(study?.protocolSection?.conditionsModule?.conditions),
-        intervention: toArray(
-          study?.protocolSection?.armsInterventionsModule?.interventions?.map((item: any) => item?.name),
-        ),
-        sponsor: getSponsor(study),
-        target: getTarget(study),
-        primaryObjective: getPrimaryObjective(study),
-        startDate: research.dates.startDate.value || undefined,
-        startDateType: research.dates.startDate.type,
-        completionDate: research.dates.completionDate.value || undefined,
-        completionDateType: research.dates.completionDate.type,
-        locationsCount: getLocationsCount(study),
+        title: trial.title, status: trial.status, phase: trial.phase, condition: trial.indication, intervention: trial.assets,
+        sponsor: trial.sponsor, target: trial.assets[0] || trial.indication[0] || "Not reported",
+        primaryObjective: trial.primaryOutcomes[0]?.measure || "Not reported", startDate: trial.startDate,
+        startDateType: "UNKNOWN", completionDate: trial.completionDate, completionDateType: "UNKNOWN",
       },
-      eligibility: research.eligibility,
-      bottomLine: reasoning.bottomLine,
-      verdict: judge.verdict,
-      hypotheses: judge.hypotheses,
-      timeline: [
-        {
-          date: research.dates.startDate.value || "Not reported",
-          event: "Trial start entered in the public record",
-          source: "ClinicalTrials.gov",
-          url: registryLink,
-        },
-        {
-          date: research.sourceTimestamp || "Not reported",
-          event: "Latest public update captured from the registry",
-          source: "ClinicalTrials.gov",
-          url: registryLink,
-        },
-        ...(research.publications[0]
-          ? [
-              {
-                date: research.publications[0].year || "Not reported",
-                event: "Linked publication or abstract surfaced in PubMed",
-                source: "PubMed",
-                url: research.publications[0].url,
-              },
-            ]
-          : []),
-        {
-          date: research.dates.completionDate.value || "Not reported",
-          event: "Trial completion or planned completion captured from the registry",
-          source: "ClinicalTrials.gov",
-          url: registryLink,
-        },
-      ],
-      relatedTrials: research.relatedTrials,
-      publications: research.publications,
-      limitations: judge.limitations,
-      evidenceModel: reasoning.evidenceModel,
-      workflow: judge.workflow,
-      sources: [
-        {
-          name: "ClinicalTrials.gov",
-          detail: "Registry record for design, status, outcomes, and lifecycle updates.",
-          url: registryLink,
-        },
-        {
-          name: "PubMed",
-          detail: "Publication search for associated abstracts and follow-up analyses.",
-          url: `https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(nctId)}`,
-        },
-        {
-          name: "View registry record",
-          detail: "Open the full ClinicalTrials.gov entry.",
-          url: registryLink,
-        },
-        {
-          name: "ClinicalTrials.gov API version",
-          detail: "Dataset timestamp used to know when registry data was refreshed.",
-          url: `${CTG_BASE}/version`,
-        },
-      ],
-      agentSummary: reasoning.signals,
-      registryFacts: research.registryFacts,
-    };
-
-    return NextResponse.json(response, {
-      headers: {
-        "cache-control": "no-store",
+      programMap: { assetNames: trial.assets, sponsor: trial.sponsor, indication: trial.indication, acronym: trial.acronym, relatedTrialIds: related.map((item) => item.nctId) },
+      trialOutcome: outcome, programOutcome: program,
+      bottomLine, verdict, hypotheses, timeline, evidenceMatrix,
+      evidenceGraph: {
+        entities: [
+          { id: "trial", type: "trial", label: nctId }, { id: "program", type: "program", label: trial.assets[0] || trial.title },
+          { id: "sponsor", type: "sponsor", label: trial.sponsor },
+          ...trial.assets.map((asset, index) => ({ id: `asset-${index}`, type: "asset", label: asset })),
+          ...trial.indication.map((condition, index) => ({ id: `indication-${index}`, type: "indication", label: condition })),
+        ],
+        events: timeline, claims, sources,
       },
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to complete the investigation.";
-    return NextResponse.json({ error: message }, { status: 502 });
+      historyComparison: history.comparison,
+      relatedTrials: related, publications,
+      limitations: [
+        "Timing establishes sequence, not causality.",
+        "Evidence marked ‘not found’ may exist outside the retrieved public sources.",
+        "Similar trials are contextual benchmarks and are not causal proof.",
+        "Derivative reports sharing one underlying announcement count as one source family.",
+      ],
+      evidenceModel: { directFacts: claims.filter((claim) => claim.kind === "documented cause" || claim.kind === "observation").length, derivedFacts: history.comparison.length, inferences: claims.filter((claim) => claim.kind.includes("hypothesis")).length, unsupportedClaims: 0 },
+      workflow: [
+        { name: "Temporal evidence agent", status: "done", summary: `Compared ${history.events.length} registry versions and built the event timeline before reasoning.`, signals: history.comparison.slice(0, 4).map((item) => item.change) },
+        { name: "Trial + program evidence agent", status: "done", summary: "Mapped the trial to its asset, sponsor, indication, acronym, related trials, and relevant public-source routes.", signals: [`Trial outcome: ${outcome.classification}`, `Program outcome: ${program.classification}`] },
+        { name: "Evidence judge", status: "done", summary: "Deduplicated source families, applied expected-evidence tests, and suppressed unsupported causal hypotheses.", signals: candidates.length ? candidates.slice(0, 3).map((candidate) => `${candidate.category}: ${candidate.evidenceStrength}`) : ["Insufficient trial-specific support"] },
+      ],
+      agentSummary: [`${history.events.length} registry versions`, `${claims.length} normalized claims`, `${sources.filter((source) => source.availability === "retrieved").length} retrieved source records`],
+      sources: sources.map((source) => ({ name: source.name, detail: `${source.detail} [${source.availability}]`, url: source.url })),
+      registryFacts: [
+        { label: "NCT ID", value: nctId }, { label: "Trial acronym", value: trial.acronym || "Not reported" },
+        { label: "Asset", value: trial.assets.join(", ") || "Not reported" }, { label: "Sponsor", value: trial.sponsor },
+        { label: "Why stopped", value: trial.whyStopped || "Not reported" }, { label: "Record versions", value: String(history.events.length) },
+      ],
+    }, { headers: { "cache-control": "no-store" } });
+  } catch {
+    return NextResponse.json({ error: "The investigation service could not complete this request." }, { status: 502 });
   }
 }
