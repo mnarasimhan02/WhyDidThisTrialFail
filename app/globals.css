@@ -26,7 +26,10 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-inter), system-ui, sans-serif;
+  width: 100%;
+  max-width: 100%;
   overflow-x: hidden;
+  overflow-x: clip;
 }
 
 body {
@@ -114,8 +117,12 @@ button {
 }
 
 .matrix-scroll {
+  min-width: 0;
+  max-width: 100%;
   margin-top: 18px;
   overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid var(--line);
 }
 
@@ -151,6 +158,10 @@ button {
 
 .wdtf-root {
   min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 .wdtf-root,
@@ -178,6 +189,8 @@ button {
 
 .page-wrap {
   width: min(1120px, calc(100% - 24px));
+  max-width: 100%;
+  min-width: 0;
   margin: 0 auto;
   padding: 24px 0 56px;
 }
@@ -410,10 +423,16 @@ h1.stampfont {
   display: grid;
   gap: 16px;
   margin-top: 26px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .result-shell,
 .result-panel-shell {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   background: var(--paper-card);
   padding: 24px 26px;
 }
@@ -453,6 +472,8 @@ h1.stampfont {
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .panel-actions {
@@ -527,18 +548,21 @@ h1.stampfont {
   margin: 12px 0 0;
   font-size: 1.05rem;
   line-height: 1.65;
+  overflow-wrap: anywhere;
 }
 
 .result-footnote {
   margin-top: 12px;
   color: var(--muted);
   font-size: 11px;
+  overflow-wrap: anywhere;
 }
 
 .section-subcopy {
   margin-top: 4px;
   color: var(--muted);
   font-size: 12.5px;
+  overflow-wrap: anywhere;
 }
 
 .hypothesis-stack {
@@ -633,11 +657,14 @@ h1.stampfont {
   display: flex;
   gap: 10px;
   align-items: flex-start;
+  min-width: 0;
 }
 
 .evidence-copy {
+  min-width: 0;
   color: var(--muted);
   line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
 .evidence-source {
@@ -663,6 +690,8 @@ h1.stampfont {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .detail-grid {
@@ -677,6 +706,7 @@ h1.stampfont {
   gap: 4px;
   padding-bottom: 10px;
   border-bottom: 1px dashed var(--line);
+  min-width: 0;
 }
 
 .detail-grid span,
@@ -688,12 +718,15 @@ h1.stampfont {
 .detail-grid strong {
   font-size: 0.98rem;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .source-columns {
   margin-top: 12px;
   display: grid;
   gap: 18px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .source-heading {
@@ -707,6 +740,16 @@ h1.stampfont {
   gap: 8px;
   align-items: start;
   padding: 8px 0;
+  min-width: 0;
+}
+
+.source-row > div,
+.src-link,
+.source-meta,
+.method-copy {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .source-mark {
@@ -1409,6 +1452,12 @@ h1.stampfont {
     padding: 18px 16px;
   }
 
+  .result-meta-line {
+    gap: 5px 7px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
   .result-title {
     font-size: clamp(1.15rem, 5.4vw, 1.55rem);
     line-height: 1.16;
@@ -1418,6 +1467,19 @@ h1.stampfont {
   .result-answer {
     font-size: 0.98rem;
     line-height: 1.58;
+  }
+
+  .panel-headline,
+  .section-title-row,
+  .panel-headline > div:first-child,
+  .section-title-row > :first-child {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .panel-actions,
+  .info-tip {
+    width: auto;
   }
 
   .examples {
@@ -1452,24 +1514,53 @@ h1.stampfont {
   }
 
   .outcome-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .outcome-grid article {
+    padding: 14px;
+    overflow: hidden;
+  }
+
+  .outcome-grid strong,
+  .outcome-grid p {
+    overflow-wrap: anywhere;
   }
 
   .timeline-item {
-    grid-template-columns: 12px minmax(0, 1fr) auto;
+    grid-template-columns: 12px minmax(0, 1fr);
     gap: 8px;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .timeline-date {
-    grid-column: 2 / -1;
+    grid-column: 2;
     grid-row: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   .timeline-copy {
     grid-column: 2;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   .timeline-scope {
-    grid-column: 3;
+    grid-column: 2;
+    justify-self: start;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .matrix-scroll {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .info-popover {
+    width: min(300px, calc(100vw - 40px));
+    max-width: calc(100vw - 40px);
   }
 }
