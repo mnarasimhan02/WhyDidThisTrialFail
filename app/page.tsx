@@ -312,9 +312,7 @@ export default function Home() {
       const hasError = "error" in payload && typeof payload.error === "string";
 
       if (!response.ok || hasError) {
-        throw new Error(
-          hasError && payload.error ? payload.error : "The investigation service could not complete this request.",
-        );
+        throw new Error("The investigation service could not complete this request.");
       }
 
       const resolved = payload as InvestigationResponse;
@@ -336,9 +334,7 @@ export default function Home() {
         resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 80);
     } catch (caught) {
-      const message =
-        caught instanceof Error ? caught.message : "Something unexpected happened while investigating the trial.";
-      setError(message);
+      setError("The investigation service could not complete this request.");
       setStatus("error");
     }
   }

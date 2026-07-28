@@ -504,7 +504,7 @@ async function fetchJson(url: string) {
     cache: "no-store",
   });
   if (!response.ok) {
-    throw new Error(`Request failed for ${url}`);
+    throw new Error("A public data source request failed.");
   }
   return response.json();
 }
@@ -518,7 +518,7 @@ async function fetchText(url: string) {
     cache: "no-store",
   });
   if (!response.ok) {
-    throw new Error(`Request failed for ${url}`);
+    throw new Error("A public data source request failed.");
   }
   return response.text();
 }
@@ -540,7 +540,12 @@ async function searchRelatedTrials(study: CtgStudy, nctId: string) {
   const url =
     `${CTG_BASE}/studies?query.term=${encodeURIComponent(query)}` +
     `&pageSize=5&fields=NCTId,BriefTitle,OverallStatus`;
-  const data = await fetchJson(url);
+  let data;
+  try {
+    data = await fetchJson(url);
+  } catch {
+    return [];
+  }
   const studies = data.studies ?? [];
 
   return studies
@@ -565,13 +570,28 @@ async function searchPublications(nctId: string, title: string, condition: strin
   const esearchUrl =
     `${PUBMED_BASE}/esearch.fcgi?db=pubmed&retmode=json&retmax=5&term=` +
     encodeURIComponent(terms.join(" OR "));
-  const search = await fetchJson(esearchUrl);
+  let search;
+  try {
+    search = await fetchJson(esearchUrl);
+  } catch {
+    return [];
+  }
   const pmids: string[] = search?.esearchresult?.idlist ?? [];
   if (!pmids.length) return [];
 
   const esummaryUrl = `${PUBMED_BASE}/esummary.fcgi?db=pubmed&retmode=json&id=${pmids.join(",")}`;
-  const summary = await fetchJson(esummaryUrl);
-  const xml = await fetchText(`${PUBMED_BASE}/efetch.fcgi?db=pubmed&id=${pmids.join(",")}&retmode=xml`);
+  let summary;
+  let xml = "";
+  try {
+    summary = await fetchJson(esummaryUrl);
+  } catch {
+    return [];
+  }
+  try {
+    xml = await fetchText(`${PUBMED_BASE}/efetch.fcgi?db=pubmed&id=${pmids.join(",")}&retmode=xml`);
+  } catch {
+    xml = "";
+  }
   const abstracts = extractTextFromXml(xml, "AbstractText");
 
   return pmids.map((pmid, index) => {
