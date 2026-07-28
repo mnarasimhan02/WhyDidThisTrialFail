@@ -57,6 +57,18 @@ type EligibilityOutcome =
   | "INVALID_OR_UNRESOLVED_TRIAL"
   | "NON_INTERVENTIONAL_OR_NOT_APPLICABLE";
 
+type FailureCategory =
+  | "SAFETY"
+  | "PRIMARY_ENDPOINT"
+  | "LACK_OF_EFFICACY"
+  | "REGULATORY"
+  | "ENROLLMENT"
+  | "BUSINESS"
+  | "CMC"
+  | "OPERATIONAL"
+  | "UNKNOWN"
+  | "NOT_A_FAILURE";
+
 type EvidenceCategory = "registry_fact" | "source_reported_fact" | "inference" | "hypothesis";
 type EvidenceStrength =
   | "DIRECTLY_DOCUMENTED"
@@ -69,6 +81,12 @@ type EvidenceStrength =
 type ResearchBundle = {
   study: CtgStudy;
   trial: NormalizedTrial;
+  failureCategory: FailureCategory;
+  categoryEvidence: Array<{
+    title: string;
+    abstract?: string;
+    url: string;
+  }>;
   eligibility: {
     outcome: EligibilityOutcome;
     reason: string;
@@ -179,6 +197,60 @@ function formatTitleCase(value: string) {
     .replace(/[_-]+/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase())
     .trim();
+}
+
+function includesAny(value: string, terms: string[]) {
+  const text = value.toLowerCase();
+  return terms.some((term) => text.includes(term.toLowerCase()));
+}
+
+function containsGenericExplanation(value: string) {
+  return includesAny(value, ["patient selection", "biology", "comparator", "dose", "recruitment"]);
+}
+
+function categoryPrompt(category: FailureCategory) {
+  switch (category) {
+    case "SAFETY":
+      return ["adverse events", "SAE", "DSMB", "safety publications", "dose reductions", "deaths", "FDA communications", "clinical holds"];
+    case "PRIMARY_ENDPOINT":
+    case "LACK_OF_EFFICACY":
+      return ["primary endpoint", "secondary endpoints", "hazard ratio", "ORR", "PFS", "OS", "p-value", "subgroup analyses"];
+    case "BUSINESS":
+      return ["SEC filings", "investor presentations", "layoffs", "restructuring", "partnership termination", "pipeline reprioritization", "financing"];
+    case "REGULATORY":
+      return ["FDA", "EMA", "clinical hold", "CRL", "inspection findings", "manufacturing issues"];
+    case "ENROLLMENT":
+      return ["enrollment", "recruitment", "accrual", "screening", "site activation"];
+    case "CMC":
+      return ["manufacturing", "batch release", "specification", "stability", "impurity", "quality control"];
+    case "OPERATIONAL":
+      return ["protocol deviations", "site issues", "data quality", "amendments", "logistics"];
+    default:
+      return [];
+  }
+}
+
+function routeFailureCategory(trial: NormalizedTrial, study: CtgStudy, publications: ResearchBundle["publications"], relatedTrials: ResearchBundle["relatedTrials"]): FailureCategory {
+  const whyStopped = (trial.whyStopped || "").toLowerCase();
+  const title = `${trial.officialTitle || ""} ${trial.briefTitle || ""}`.toLowerCase();
+  const pubText = publications.map((item) => `${item.title} ${item.abstract ?? ""}`).join(" ").toLowerCase();
+  const relatedText = relatedTrials.map((item) => `${item.title} ${item.relevance}`).join(" ").toLowerCase();
+  const combined = `${whyStopped} ${title} ${pubText} ${relatedText}`;
+
+  if (!trial.overallStatus || trial.overallStatus === "Not reported") return "UNKNOWN";
+  if (["recruiting", "not yet recruiting", "active, not recruiting", "active not recruiting", "enrolling by invitation"].includes((trial.overallStatus || "").toLowerCase())) {
+    return "NOT_A_FAILURE";
+  }
+  if (includesAny(combined, ["safety", "toxicity", "adverse event", "adverse events", "serious adverse", "sae", "dsmb", "death", "deaths", "clinical hold"])) return "SAFETY";
+  if (includesAny(combined, ["fda", "ema", "crl", "clinical hold", "regulatory", "inspection", "approval", "label"])) return "REGULATORY";
+  if (includesAny(combined, ["sec", "investor", "restructur", "layoff", "partnership", "financing", "repriorit", "pipeline"])) return "BUSINESS";
+  if (includesAny(combined, ["manufactur", "batch", "release", "specification", "contamination", "impurity", "stability", "quality control"])) return "CMC";
+  if (includesAny(combined, ["protocol deviation", "site issue", "operational", "timing", "logistics", "data quality", "missing data", "amendment"])) return "OPERATIONAL";
+  if (includesAny(combined, ["enroll", "recruitment", "accrual", "screening", "enrollment target"])) return "ENROLLMENT";
+  if (includesAny(combined, ["primary endpoint", "primary outcome", "did not meet", "missed endpoint"])) return "PRIMARY_ENDPOINT";
+  if (includesAny(combined, ["hazard ratio", "orr", "pfs", "os", "p-value", "subgroup", "efficacy", "response rate"])) return "LACK_OF_EFFICACY";
+  if (!study?.protocolSection?.statusModule?.whyStopped && trial.overallStatus?.toLowerCase() === "completed") return "UNKNOWN";
+  return "UNKNOWN";
 }
 
 function normalizeDate(value: unknown, typeHint?: unknown): DateState {
@@ -515,6 +587,40 @@ async function searchPublications(nctId: string, title: string, condition: strin
   });
 }
 
+async function searchCategoryEvidence(category: FailureCategory, trial: NormalizedTrial, study: CtgStudy) {
+  const title = firstString(study?.protocolSection?.identificationModule?.briefTitle, trial.officialTitle || trial.briefTitle);
+  const sponsor = trial.sponsor || firstString(study?.protocolSection?.sponsorCollaboratorsModule?.leadSponsor?.name);
+  const whyStopped = trial.whyStopped || "";
+  const query = [title, sponsor, whyStopped, categoryPrompt(category).join(" OR ")].filter(Boolean).join(" ");
+  const condition = firstString(...toArray(study?.protocolSection?.conditionsModule?.conditions));
+  const intervention = firstString(
+    ...toArray(study?.protocolSection?.armsInterventionsModule?.interventions?.map((item: any) => item?.name)),
+  );
+  const hits = await searchPublications(trial.nctId, query, condition, intervention);
+  return hits.filter((item) => {
+    const text = `${item.title} ${item.abstract ?? ""}`.toLowerCase();
+    switch (category) {
+      case "SAFETY":
+        return includesAny(text, ["safety", "adverse", "toxicity", "dsmb", "death", "clinical hold"]);
+      case "PRIMARY_ENDPOINT":
+      case "LACK_OF_EFFICACY":
+        return includesAny(text, ["endpoint", "efficacy", "response", "hazard ratio", "pfs", "os", "orr", "p-value", "subgroup"]);
+      case "REGULATORY":
+        return includesAny(text, ["fda", "ema", "clinical hold", "approval", "inspection", "crl"]);
+      case "BUSINESS":
+        return includesAny(text, ["sec", "investor", "restructuring", "partnership", "pipeline", "financing", "layoff"]);
+      case "CMC":
+        return includesAny(text, ["manufacturing", "batch", "specification", "stability", "impurity", "quality"]);
+      case "ENROLLMENT":
+        return includesAny(text, ["enrollment", "recruitment", "accrual", "screening"]);
+      case "OPERATIONAL":
+        return includesAny(text, ["protocol", "site", "operational", "logistics", "data"]);
+      default:
+        return true;
+    }
+  }).slice(0, 4);
+}
+
 async function runResearchAgent(nctId: string): Promise<ResearchBundle> {
   const study = await fetchStudy(nctId);
   const trial = normalizeTrial(study, nctId);
@@ -526,6 +632,11 @@ async function runResearchAgent(nctId: string): Promise<ResearchBundle> {
   );
   const relatedTrials = await searchRelatedTrials(study, nctId);
   const publications = await searchPublications(nctId, title, condition, intervention);
+  const failureCategory = routeFailureCategory(trial, study, publications, relatedTrials);
+  const categoryEvidence =
+    failureCategory === "UNKNOWN" || failureCategory === "NOT_A_FAILURE"
+      ? []
+      : await searchCategoryEvidence(failureCategory, trial, study);
   const dates = {
     startDate: trial.startDate,
     completionDate: trial.completionDate,
@@ -535,6 +646,7 @@ async function runResearchAgent(nctId: string): Promise<ResearchBundle> {
   return {
     study,
     trial,
+    failureCategory,
     eligibility,
     dates,
     sourceTimestamp,
@@ -555,10 +667,21 @@ async function runResearchAgent(nctId: string): Promise<ResearchBundle> {
       { label: "Why stopped", value: trial.whyStopped || "Not reported" },
       { label: "Results posted", value: trial.hasResults ? "Yes" : "No" },
     ],
+    categoryEvidence,
   };
 }
 
-function makeHypotheses(study: CtgStudy, publications: ResearchBundle["publications"], relatedTrials: ResearchBundle["relatedTrials"]): Hypothesis[] {
+function makeHypotheses(
+  study: CtgStudy,
+  publications: ResearchBundle["publications"],
+  relatedTrials: ResearchBundle["relatedTrials"],
+  failureCategory: FailureCategory,
+  categoryEvidence: Array<{
+    title: string;
+    abstract?: string;
+    url: string;
+  }>,
+): Hypothesis[] {
   const condition = firstString(...toArray(study?.protocolSection?.conditionsModule?.conditions));
   const intervention = firstString(
     ...toArray(study?.protocolSection?.armsInterventionsModule?.interventions?.map((item: any) => item?.name)),
@@ -603,15 +726,94 @@ function makeHypotheses(study: CtgStudy, publications: ResearchBundle["publicati
   return [
     {
       id: "H1",
-      label: "Patient selection was too broad",
-      evidenceStrength: publications.length ? "MODERATE PUBLIC EVIDENCE" : "LIMITED PUBLIC EVIDENCE",
+      label:
+        failureCategory === "SAFETY"
+          ? "Safety signal emerged"
+          : failureCategory === "PRIMARY_ENDPOINT"
+            ? "Primary endpoint was missed"
+            : failureCategory === "LACK_OF_EFFICACY"
+              ? "Public evidence points to low efficacy"
+              : failureCategory === "REGULATORY"
+                ? "Regulatory issue surfaced"
+                : failureCategory === "ENROLLMENT"
+                  ? "Enrollment stalled"
+                  : failureCategory === "BUSINESS"
+                    ? "Business priorities changed"
+                    : failureCategory === "CMC"
+                      ? "CMC issue surfaced"
+                      : failureCategory === "OPERATIONAL"
+                        ? "Operational friction accumulated"
+                        : "Evidence remains mixed",
+      evidenceStrength:
+        failureCategory === "SAFETY" || failureCategory === "REGULATORY"
+          ? "STRONG PUBLIC EVIDENCE"
+          : publications.length
+            ? "MODERATE PUBLIC EVIDENCE"
+            : "LIMITED PUBLIC EVIDENCE",
       statement:
-        "The enrolled population likely diluted effect size because the publicly visible record does not show strong biomarker enrichment.",
-      whyItMatters: "Broad enrollment often hides a true signal in a biologically narrower subgroup.",
-      evidence: evidenceForSelection,
+        failureCategory === "SAFETY"
+          ? "Public evidence points to a safety-related stop or a safety concern that outweighed continuation."
+          : failureCategory === "PRIMARY_ENDPOINT"
+            ? "Public evidence points to a missed primary endpoint."
+            : failureCategory === "LACK_OF_EFFICACY"
+              ? "Public evidence points to insufficient efficacy to justify continuation."
+              : failureCategory === "REGULATORY"
+                ? "Public evidence points to a regulatory or manufacturing barrier rather than a simple efficacy miss."
+                : failureCategory === "ENROLLMENT"
+                  ? "Public evidence points to insufficient enrollment or slow accrual as the proximate issue."
+                  : failureCategory === "BUSINESS"
+                    ? "Public evidence points to a business decision that changed the program's path."
+                    : failureCategory === "CMC"
+                      ? "Public evidence points to a chemistry, manufacturing, or controls issue."
+                      : failureCategory === "OPERATIONAL"
+                        ? "Public evidence points to execution problems that limited the study."
+                        : "The available public record does not support one clean explanation without more evidence.",
+      whyItMatters:
+        failureCategory === "SAFETY"
+          ? "Safety findings can stop a program even when the biology is promising."
+          : failureCategory === "PRIMARY_ENDPOINT"
+            ? "A missed primary endpoint is the clearest efficacy-type failure."
+            : failureCategory === "LACK_OF_EFFICACY"
+              ? "A weak efficacy signal can end a program even without a formal endpoint miss."
+              : failureCategory === "REGULATORY"
+                ? "Regulatory setbacks can halt development even when the trial design is sound."
+                : failureCategory === "ENROLLMENT"
+                  ? "A study can fail operationally before efficacy is fully tested."
+                  : failureCategory === "BUSINESS"
+                    ? "Programs can stop for strategic reasons unrelated to trial data."
+                    : failureCategory === "CMC"
+                      ? "Manufacturing issues can derail a program independently of clinical outcome."
+                      : failureCategory === "OPERATIONAL"
+                        ? "Execution issues can obscure whether the therapy itself worked."
+                        : "Without category-specific evidence, the explanation should remain cautious.",
+      evidence: failureCategory === "SAFETY"
+        ? categoryEvidence.length
+          ? categoryEvidence.map((item) => ({
+              category: "source_reported_fact" as const,
+              sourceType: "public-source",
+              citation: item.title,
+              claim: item.abstract
+                ? item.abstract.slice(0, 220)
+                : "Category-specific safety evidence surfaced in the public record.",
+              url: item.url,
+            }))
+          : evidenceForSelection.filter((item) => !containsGenericExplanation(item.claim))
+        : failureCategory === "REGULATORY"
+          ? evidenceForEndpoint
+          : failureCategory === "ENROLLMENT"
+            ? evidenceForComparator
+            : failureCategory === "BUSINESS"
+              ? evidenceForComparator
+              : failureCategory === "CMC"
+                ? evidenceForEndpoint
+                : failureCategory === "OPERATIONAL"
+                  ? evidenceForComparator
+                  : failureCategory === "PRIMARY_ENDPOINT"
+                    ? evidenceForEndpoint
+                    : evidenceForSelection,
       counterevidence: publications.slice(1, 2).map((publication: any) => ({
         citation: publication.title,
-        claim: "At least part of the program rationale was credible enough to reach publication.",
+        claim: "Additional public context exists, but it does not overturn the routed category.",
         url: publication.url,
       })),
     },
@@ -620,8 +822,13 @@ function makeHypotheses(study: CtgStudy, publications: ResearchBundle["publicati
       label: "Target biology or dose strategy was not strong enough",
       evidenceStrength: publications.length > 1 ? "LIMITED PUBLIC EVIDENCE" : "SPECULATIVE",
       statement:
-        "The mechanism may have been plausible, but not sufficiently central or exposed at the chosen dose/schedule to create durable benefit.",
-      whyItMatters: "A weak target or suboptimal exposure can produce a signal that never becomes clinically meaningful.",
+        failureCategory === "SAFETY"
+          ? "The public record does not support a generic efficacy explanation because the stronger signal is safety-related."
+          : "This fallback hypothesis should only appear when the routed category is still not fully resolved.",
+      whyItMatters:
+        failureCategory === "SAFETY"
+          ? "A safety-driven stop should not be relabeled as a target problem."
+          : "Fallback explanations should not replace category-specific evidence.",
       evidence: [
         {
           category: "source_reported_fact",
@@ -642,36 +849,69 @@ function makeHypotheses(study: CtgStudy, publications: ResearchBundle["publicati
       label: "Endpoint or comparator bar was too high",
       evidenceStrength: relatedTrials.length ? "LIMITED PUBLIC EVIDENCE" : "INSUFFICIENT EVIDENCE",
       statement:
-        "The program may have been asked to move a difficult endpoint in a population where the control arm or disease context was already challenging.",
-      whyItMatters: "A mismatch between mechanism and endpoint can make a useful signal look like failure.",
+        failureCategory === "SAFETY"
+          ? "No generic comparator explanation is used because the public record points to a safety event."
+          : "Comparator explanations require category-specific evidence and should not be used as filler.",
+      whyItMatters:
+        failureCategory === "SAFETY"
+          ? "A safety stop should not be collapsed into a design critique."
+          : "Generic comparator claims are blocked unless the evidence supports them.",
       evidence: evidenceForComparator.length ? evidenceForComparator : evidenceForEndpoint,
       counterevidence: [],
     },
   ];
 }
 
-function makeBottomLine(study: CtgStudy, publications: ResearchBundle["publications"], relatedTrials: ResearchBundle["relatedTrials"]) {
+function makeBottomLine(
+  study: CtgStudy,
+  publications: ResearchBundle["publications"],
+  relatedTrials: ResearchBundle["relatedTrials"],
+  failureCategory: FailureCategory,
+) {
   const status = getStatus(study);
   const title = firstString(study?.protocolSection?.identificationModule?.briefTitle);
   const condition = firstString(...toArray(study?.protocolSection?.conditionsModule?.conditions));
-  const intervention = firstString(
-    ...toArray(study?.protocolSection?.armsInterventionsModule?.interventions?.map((item: any) => item?.name)),
-  );
-
+  if (failureCategory === "NOT_A_FAILURE" || failureCategory === "UNKNOWN") {
+    return "There is insufficient public evidence to determine why this trial failed.";
+  }
+  if (failureCategory === "SAFETY") {
+    return `The public record suggests a safety-related stop for ${title || "this trial"} in ${condition || "the target disease area"}, with the strongest available signals centered on adverse events, toxicity, or a clinical hold rather than a generic efficacy miss.`;
+  }
+  if (failureCategory === "PRIMARY_ENDPOINT") {
+    return `The public record suggests ${title || "this trial"} missed its primary endpoint in ${condition || "the target disease area"}, making this the clearest efficacy-type failure mode.`;
+  }
+  if (failureCategory === "LACK_OF_EFFICACY") {
+    return `The public record suggests ${title || "this trial"} did not show enough efficacy to justify continuation, but the evidence is weaker than a direct missed-endpoint report.`;
+  }
+  if (failureCategory === "REGULATORY") {
+    return `The public record suggests a regulatory or manufacturing barrier affected ${title || "this trial"}, which is more consistent with an external development constraint than a biological failure.`;
+  }
+  if (failureCategory === "ENROLLMENT") {
+    return `The public record suggests ${title || "this trial"} ran into an enrollment problem in ${condition || "the target disease area"}, so the stop looks operational rather than mechanistic.`;
+  }
+  if (failureCategory === "BUSINESS") {
+    return `The public record suggests business priorities changed for ${title || "this trial"}, so the stop should not be interpreted as a pure efficacy readout.`;
+  }
+  if (failureCategory === "CMC") {
+    return `The public record suggests a chemistry, manufacturing, or controls issue affected ${title || "this trial"}, which can stop development even when the clinical hypothesis remains plausible.`;
+  }
+  if (failureCategory === "OPERATIONAL") {
+    return `The public record suggests execution issues affected ${title || "this trial"}, and the available evidence does not support a more specific causal claim.`;
+  }
   const lead =
     publications.length > 0
       ? "The public evidence points to a mixed clinical story rather than a single clean cause."
       : "The public record is thin, so the app is relying on trial structure and related-program context.";
-
-  return `${lead} For ${title || "this trial"} in ${condition || "the target disease area"}, the available sources suggest the most plausible explanation is a combination of patient selection, biology/exposure, and endpoint mismatch. The trial status is ${status.toLowerCase()}, and the public record does not support a definitive causal claim.`;
+  return `${lead} For ${title || "this trial"} in ${condition || "the target disease area"}, the current evidence does not justify a generic explanation.`;
 }
 
 function runReasoningAgent(bundle: ResearchBundle) {
   const study = bundle.study;
   const publications = bundle.publications;
   const relatedTrials = bundle.relatedTrials;
-  const hypotheses = makeHypotheses(study, publications, relatedTrials);
-  const bottomLine = makeBottomLine(study, publications, relatedTrials);
+  const failureCategory = bundle.failureCategory;
+  const hypotheses = makeHypotheses(study, publications, relatedTrials, failureCategory, bundle.categoryEvidence);
+  const bottomLine = makeBottomLine(study, publications, relatedTrials, failureCategory);
   const evidenceModel = {
     directFacts: 10 + publications.length,
     derivedFacts: 4 + relatedTrials.length,
