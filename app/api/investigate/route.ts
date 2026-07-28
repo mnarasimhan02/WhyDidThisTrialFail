@@ -145,6 +145,18 @@ const VERIFIED_EVIDENCE: VerifiedEvidence[] = [
     claim: "Roche stopped dosing after the independent data monitoring committee reviewed the investigational therapy's potential benefit-risk profile; Roche stated that no new safety signals prompted the decision.",
     documentedCause: true,
   },
+  {
+    id: "verified-mystic-results",
+    nctId: "NCT02453282",
+    category: "primary endpoint",
+    sourceName: "JAMA Oncology / PubMed",
+    sourceType: "publication",
+    url: "https://pubmed.ncbi.nlm.nih.gov/32271377/",
+    date: "2020-05-01",
+    detail: "Durvalumab With or Without Tremelimumab vs Standard Chemotherapy in the MYSTIC Phase 3 Trial.",
+    claim: "MYSTIC did not meet its primary endpoints: durvalumab with or without tremelimumab did not significantly improve overall survival, and the combination did not significantly improve progression-free survival, versus chemotherapy.",
+    documentedCause: false,
+  },
 ];
 
 function verifiedEvidenceForTrial(nctId: string) {
