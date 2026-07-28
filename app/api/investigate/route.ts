@@ -5,6 +5,7 @@ type Json = Record<string, any>;
 const CTG = "https://clinicaltrials.gov/api/v2";
 const CTG_HISTORY = "https://clinicaltrials.gov/api/int/studies";
 const PUBMED = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils";
+const EUROPE_PMC = "https://www.ebi.ac.uk/europepmc/webservices/rest";
 const SEC = "https://data.sec.gov";
 const OPEN_FDA = "https://api.fda.gov";
 const USER_AGENT = "WhyDidThisTrialFail/2.0 contact@whydidthistrialfail.ai";
@@ -317,11 +318,16 @@ async function searchPubMed(nctId: string, entityTerms: string[], indications: s
     xmlValues(article, "PMID")[0],
     xmlValues(article, "AbstractText").join(" "),
   ]));
+  const missingIds = ids.filter((pmid, index) => !(abstracts.get(pmid) || articleAbstracts[index]));
+  const fallbackAbstracts = new Map((await Promise.all(missingIds.map(async (pmid) => {
+    const data = await getJson(`${EUROPE_PMC}/search?query=${encodeURIComponent(`EXT_ID:${pmid} AND SRC:MED`)}&format=json&pageSize=1`, true);
+    return [pmid, first(data?.resultList?.result?.[0]?.abstractText)] as const;
+  }))).filter((entry) => entry[1]));
   return ids.map((pmid, index) => {
     const item = summary?.result?.[pmid] ?? {};
     return {
       pmid, title: first(item.title) || "PubMed record", journal: first(item.fulljournalname, item.source) || "PubMed",
-      year: first(item.pubdate) || "Unknown year", abstract: abstracts.get(pmid) || articleAbstracts[index] || undefined,
+      year: first(item.pubdate) || "Unknown year", abstract: abstracts.get(pmid) || articleAbstracts[index] || fallbackAbstracts.get(pmid) || undefined,
       matchedByNct: exactIds.includes(pmid), matchedByContext: contextualIds.includes(pmid),
       url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
     };
