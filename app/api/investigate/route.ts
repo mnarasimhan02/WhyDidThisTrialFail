@@ -400,12 +400,12 @@ function retrieveCtis(trial: ReturnType<typeof normalizeTrial>) {
 
 const CATEGORY_TERMS: Record<FailureCategory, string[]> = {
   safety: ["safety concern", "safety signal", "toxicity", "adverse event", "serious adverse", "death", "dsmb", "benefit-risk", "liver enzyme", "hepatotoxic"],
-  efficacy: ["lack of efficacy", "futility", "insufficient efficacy", "no clinical benefit"],
+  efficacy: ["lack of efficacy", "futility", "insufficient efficacy", "no clinical benefit", "no reduction in", "did not improve", "no treatment benefit"],
   "primary endpoint": ["primary endpoint", "did not meet", "failed to meet", "p-value", "hazard ratio"],
   enrollment: ["unable to recruit", "poor recruitment", "slow enrollment", "low accrual", "enrollment shortfall", "recruitment target"],
   operational: ["operational", "site closure", "logistics", "data quality", "protocol deviation"],
   "protocol design": ["protocol design", "endpoint changed", "eligibility amended", "design limitation"],
-  regulatory: ["fda", "ema", "clinical hold", "complete response letter", "inspection", "regulatory"],
+  regulatory: ["clinical hold", "complete response letter", "inspection finding", "warning letter", "regulatory action"],
   "CMC/manufacturing": ["manufacturing", "batch", "stability", "impurity", "quality control", "cmc"],
   funding: ["funding", "financing", "cash runway", "budget"],
   "commercial strategy": ["commercial", "market opportunity", "strategic alternative"],
@@ -481,7 +481,7 @@ function classifyText(value: string): FailureCategory[] {
   const categories = (Object.entries(CATEGORY_TERMS) as Array<[FailureCategory, string[]]>)
     .filter(([category, terms]) => !["unknown", "not a failure"].includes(category) && has(value, terms))
     .map(([category]) => category);
-  const negativeEndpoint = has(value, ["did not meet", "failed to meet", "not associated with slower", "no significant difference", "futility", "unlikely to meet"]);
+  const negativeEndpoint = has(value, ["did not meet", "failed to meet", "did not result in", "not associated with slower", "no significant difference", "futility", "unlikely to meet"]);
   const endpointContext = has(value, ["primary endpoint", "primary end point", "primary outcome", "clinical decline"]);
   if (negativeEndpoint && endpointContext && !categories.includes("primary endpoint")) categories.push("primary endpoint");
   return categories;
@@ -652,6 +652,10 @@ function evaluateCandidates(claims: Claim[], sources: Source[], trial: ReturnTyp
   return candidates.sort((a, b) => {
     const documentedDelta = Number(b.claimKind === "documented cause") - Number(a.claimKind === "documented cause");
     if (documentedDelta) return documentedDelta;
+    const categoryOrder: FailureCategory[] = ["primary endpoint", "efficacy", "safety"];
+    const categoryDelta = (categoryOrder.indexOf(a.category) < 0 ? 99 : categoryOrder.indexOf(a.category))
+      - (categoryOrder.indexOf(b.category) < 0 ? 99 : categoryOrder.indexOf(b.category));
+    if (categoryDelta) return categoryDelta;
     const priorityDelta = (a.sourcePriority ?? 6) - (b.sourcePriority ?? 6);
     return priorityDelta || b.score - a.score;
   });
