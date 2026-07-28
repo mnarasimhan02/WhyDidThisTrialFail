@@ -610,6 +610,27 @@ h1.stampfont {
   border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
+.badge-high,
+.badge-medium,
+.badge-low {
+  border-color: transparent;
+}
+
+.badge-high {
+  background: rgba(31, 92, 75, 0.1);
+  color: #1f5c4b;
+}
+
+.badge-medium {
+  background: rgba(138, 100, 22, 0.1);
+  color: #8a6416;
+}
+
+.badge-low {
+  background: rgba(139, 58, 34, 0.1);
+  color: #8b3a22;
+}
+
 .badge-cool {
   background: rgba(93, 119, 196, 0.1);
   color: #5270c7;

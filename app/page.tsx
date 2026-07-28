@@ -6,6 +6,12 @@ type InvestigationResponse = {
   nctId: string;
   fetchedAt: string;
   sourceTimestamp?: string;
+  eligibility?: {
+    outcome: string;
+    reason: string;
+    registryFacts: string[];
+    shouldInvestigate: boolean;
+  };
   overview: {
     title: string;
     status: string;
@@ -16,18 +22,21 @@ type InvestigationResponse = {
     target: string;
     primaryObjective: string;
     startDate?: string;
+    startDateType?: "ACTUAL" | "ESTIMATED" | "UNKNOWN";
     completionDate?: string;
+    completionDateType?: "ACTUAL" | "ESTIMATED" | "UNKNOWN";
     locationsCount?: number;
   };
   bottomLine: string;
-  verdict: "high" | "medium" | "low" | "unknown";
+  verdict: "DIRECTLY DOCUMENTED" | "STRONG PUBLIC EVIDENCE" | "MODERATE PUBLIC EVIDENCE" | "LIMITED PUBLIC EVIDENCE" | "SPECULATIVE" | "INSUFFICIENT EVIDENCE";
   hypotheses: Array<{
     id: string;
     label: string;
-    confidence: "high" | "medium" | "low" | "unknown";
+    evidenceStrength: "DIRECTLY DOCUMENTED" | "STRONG PUBLIC EVIDENCE" | "MODERATE PUBLIC EVIDENCE" | "LIMITED PUBLIC EVIDENCE" | "SPECULATIVE" | "INSUFFICIENT EVIDENCE";
     statement: string;
     whyItMatters: string;
     evidence: Array<{
+      category: "registry_fact" | "source_reported_fact" | "inference" | "hypothesis";
       sourceType: string;
       citation: string;
       claim: string;
@@ -79,6 +88,10 @@ type InvestigationResponse = {
     detail: string;
     url: string;
   }>;
+  registryFacts?: Array<{
+    label: string;
+    value: string;
+  }>;
 };
 
 type ApiState =
@@ -116,6 +129,12 @@ const TIERS = {
     color: "#1F5C4B",
     bg: "#DCE8E1",
     desc: "Directly stated in a primary source.",
+  },
+  source_reported_fact: {
+    label: "SOURCE",
+    color: "#1F5C4B",
+    bg: "#DCE8E1",
+    desc: "Explicitly reported by a public source.",
   },
   inference: {
     label: "INFERENCE",
@@ -193,8 +212,8 @@ function ConfBadge({ level }: { level: "high" | "medium" | "low" }) {
   );
 }
 
-function Tag({ kind }: { kind: "fact" | "inference" | "hypothesis" }) {
-  const tier = TIERS[kind];
+function Tag({ kind }: { kind: "registry_fact" | "source_reported_fact" | "inference" | "hypothesis" }) {
+  const tier = kind === "registry_fact" ? TIERS.fact : TIERS[kind];
 
   return (
     <span
@@ -212,10 +231,19 @@ function Tag({ kind }: { kind: "fact" | "inference" | "hypothesis" }) {
   );
 }
 
-function confTone(level: "high" | "medium" | "low" | "unknown") {
-  if (level === "high") return "high";
-  if (level === "medium") return "medium";
+function strengthTone(level: InvestigationResponse["verdict"]) {
+  if (level === "DIRECTLY DOCUMENTED" || level === "STRONG PUBLIC EVIDENCE") return "high";
+  if (level === "MODERATE PUBLIC EVIDENCE") return "medium";
   return "low";
+}
+
+function strengthLabel(level: InvestigationResponse["verdict"]) {
+  if (level === "DIRECTLY DOCUMENTED") return "Directly documented";
+  if (level === "STRONG PUBLIC EVIDENCE") return "Strong public evidence";
+  if (level === "MODERATE PUBLIC EVIDENCE") return "Moderate public evidence";
+  if (level === "LIMITED PUBLIC EVIDENCE") return "Limited public evidence";
+  if (level === "SPECULATIVE") return "Speculative";
+  return "Insufficient evidence";
 }
 
 function sourceCount(data: InvestigationResponse) {
@@ -446,7 +474,7 @@ export default function Home() {
               },
               {
                 title: "Hypotheses",
-                body: "Every plausible explanation, ranked by confidence, each with the evidence for it and the strongest case against it.",
+                body: "Every plausible explanation, ranked by evidence strength, each with the evidence for it and the strongest case against it.",
               },
               {
                 title: "Evidence",
@@ -483,8 +511,8 @@ export default function Home() {
             <section className="folder grain result-panel-shell">
               <div className="panel-headline">
                 <div className="mono panel-kicker">WHY IT MOST LIKELY FAILED</div>
-                <span className={`badge badge-${confTone(data.verdict)}`}>
-                  {data.verdict === "high" ? "High confidence" : data.verdict === "medium" ? "Medium confidence" : "Low confidence"}
+                <span className={`badge badge-${strengthTone(data.verdict)}`}>
+                  {strengthLabel(data.verdict)}
                 </span>
               </div>
               <p className="result-answer">
@@ -504,9 +532,9 @@ export default function Home() {
                 <div className="hypothesis-stack">
                   {data.hypotheses.map((hypothesis, index) => {
                     const tierKey =
-                      hypothesis.confidence === "high"
+                      hypothesis.evidenceStrength === "DIRECTLY DOCUMENTED"
                         ? "fact"
-                        : hypothesis.confidence === "medium"
+                        : hypothesis.evidenceStrength === "STRONG PUBLIC EVIDENCE" || hypothesis.evidenceStrength === "MODERATE PUBLIC EVIDENCE"
                           ? "inference"
                           : "hypothesis";
                     const tier = TIERS[tierKey];
@@ -528,7 +556,9 @@ export default function Home() {
                             <span className="mono tier-chip" style={{ color: tier.color, borderColor: `${tier.color}66` }}>
                               {tier.label}
                             </span>
-                            <ConfBadge level={confTone(hypothesis.confidence)} />
+                            <span className={`badge badge-${strengthTone(hypothesis.evidenceStrength)}`}>
+                              {strengthLabel(hypothesis.evidenceStrength)}
+                            </span>
                             <span className="toggle-mark">{isOpen ? "▾" : "▸"}</span>
                           </div>
                         </button>
@@ -540,7 +570,7 @@ export default function Home() {
                             </div>
                             {hypothesis.evidence.map((item, evidenceIndex) => (
                               <div key={`${hypothesis.id}-${evidenceIndex}`} className="evidence-row">
-                                <Tag kind={evidenceIndex === 0 ? "fact" : "inference"} />
+                                <Tag kind={item.category} />
                                 <div className="evidence-copy">
                                   <div className="evidence-source">{item.sourceType}</div>
                                   <div className="evidence-text">{item.claim}</div>
@@ -571,8 +601,8 @@ export default function Home() {
                     <div><span>Intervention</span><strong>{data.overview.intervention.join(", ") || "Not reported"}</strong></div>
                     <div><span>Sponsor</span><strong>{data.overview.sponsor}</strong></div>
                     <div><span>Status</span><strong>{data.overview.status}</strong></div>
-                    <div><span>Start date</span><strong>{formatDate(data.overview.startDate)}</strong></div>
-                    <div><span>Completion date</span><strong>{formatDate(data.overview.completionDate)}</strong></div>
+                    <div><span>Start date</span><strong>{formatDate(data.overview.startDate)} {data.overview.startDateType ? `(${data.overview.startDateType})` : ""}</strong></div>
+                    <div><span>Completion date</span><strong>{formatDate(data.overview.completionDate)} {data.overview.completionDateType ? `(${data.overview.completionDateType})` : ""}</strong></div>
                   </div>
                 ) : null}
               </section>
@@ -618,7 +648,7 @@ export default function Home() {
               </button>
               {showMethod ? (
                 <div className="method-copy">
-                  Research agent pulled the registry record, PubMed, and related trials. Reasoning agent turned that evidence into ranked hypotheses. Judge agent checked for overclaiming and kept the answer conservative wherever the public trail was thin.
+                  Eligibility gate first checks the registry record. If the public record supports a plausible failure signal, the research agent pulls ClinicalTrials.gov, PubMed, and comparator trials. The reasoning agent builds only trial-specific hypotheses, and the judge agent removes weak claims or downgrades unsupported conclusions.
                 </div>
               ) : null}
             </section>
