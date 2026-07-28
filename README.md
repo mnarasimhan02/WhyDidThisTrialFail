@@ -4,6 +4,38 @@ WhyDidThisTrialFail is a public-source trial investigation app.
 
 Paste one NCT ID, or search by sponsor or trial title in the same box, and the app builds a temporal, source-traceable investigation of both the individual trial and the broader development program.
 
+Live app: [whydidthistrialfail.ai](https://www.whydidthistrialfail.ai/)
+
+## Iteration 2: stricter, trial-specific reasoning
+
+Iteration 2 responds directly to early user feedback that a trial-investigation product must prefer a short `insufficient public evidence` result over a confident but generic explanation.
+
+### What changed
+
+- Added a source-priority failure router: current registry reason, registry history, sponsor/SEC evidence, regulator evidence, then trial-specific publications
+- Normalized ClinicalTrials.gov statuses such as `ACTIVE_NOT_RECRUITING` before deciding whether failure reasoning should run
+- Prevented recruiting, not-yet-recruiting, active-not-recruiting, and completed-without-documented-failure studies from entering the failure-hypothesis path
+- Locked documented stop reasons to their category; for example, a documented safety stop cannot produce unrelated efficacy or regulatory explanations
+- Replaced broad keyword promotion with independent, category-specific expected-evidence tests
+- Required direct, trial-linked evidence before emitting any non-documented causal hypothesis
+- Added contradiction detection for signals such as a reported endpoint miss versus positive endpoint messaging
+- Applied contradiction and missing-evidence penalties to internal evidence ranking
+- Restricted SEC analysis to passages surrounding the NCT ID, acronym, or asset name instead of scanning an entire filing as one claim
+- Prevented asset-level FDA information from being presented as the cause of a specific trial outcome
+- Rejected generic filler explanations such as patient selection, target biology, dose, comparator choice, or recruitment unless trial-specific evidence explicitly supports them
+- Added automated reasoning regression tests and restored TypeScript and ESLint validation
+
+### Verified Iteration 2 cases
+
+| NCT ID | Public-record state | Expected app behavior |
+| --- | --- | --- |
+| `NCT02569398` | Terminated for a registry-documented safety/benefit-risk reason | Reports safety as directly documented and stays inside the safety route |
+| `NCT06625320` | Active, not recruiting | Reports `not a failure` and generates no failure hypotheses |
+| `NCT06850597` | Recruiting | Reports `not a failure` and generates no failure hypotheses |
+| `NCT01900665` | Terminated after missing the primary endpoint | Reports primary-endpoint failure as directly documented and separates the continuing program |
+
+The reasoning regression suite covers documented safety, explicit endpoint misses, generic-answer rejection, independent expected-evidence checks, asset-only evidence suppression, active-status normalization, category isolation, and completed-trial handling.
+
 ## Purpose
 
 Clinical-trial outcomes are usually easy to summarize and hard to explain. This app is built for the harder part: taking one trial identifier and turning the public record into a structured, evidence-ranked investigation.
@@ -117,9 +149,11 @@ The app also uses trial-record context to:
 
 These IDs resolve to real ClinicalTrials.gov records and were tested against the public registry during development:
 
-- `NCT02569398` — terminated with a registry-documented safety/benefit-risk reason
-- `NCT04280705`
-- `NCT02009449`
+- `NCT02569398` — documented safety stop
+- `NCT01900665` — documented primary-endpoint miss
+- `NCT06625320` — active, not recruiting; must not be called a failure
+- `NCT06850597` — recruiting; must not be called a failure
+- `NCT00232128` — terminated without enough retrieved causal evidence
 
 They are useful starting points because they exercise the app flow, hypothesis ranking, and evidence cards without relying on placeholder IDs.
 
@@ -137,6 +171,14 @@ npm run dev
 ## Production build
 
 ```bash
+npm run build
+```
+
+## Validation
+
+```bash
+npm test
+npm run lint
 npm run build
 ```
 
