@@ -254,7 +254,9 @@ function Tag({ kind }: { kind: "registry_fact" | "source_reported_fact" | "infer
 function InfoTip({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <details className="info-tip">
-      <summary aria-label={`About ${title}`} title={`About ${title}`}>i</summary>
+      <summary aria-label={`Help: ${title}`} title={`How ${title.toLowerCase()} is calculated`}>
+        <span aria-hidden="true">?</span>
+      </summary>
       <div className="info-popover" role="note">
         <strong>{title}</strong>
         <div>{children}</div>
