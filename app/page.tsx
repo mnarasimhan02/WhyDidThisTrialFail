@@ -251,6 +251,18 @@ function Tag({ kind }: { kind: "registry_fact" | "source_reported_fact" | "infer
   );
 }
 
+function InfoTip({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <details className="info-tip">
+      <summary aria-label={`About ${title}`} title={`About ${title}`}>i</summary>
+      <div className="info-popover" role="note">
+        <strong>{title}</strong>
+        <div>{children}</div>
+      </div>
+    </details>
+  );
+}
+
 function strengthTone(level: InvestigationResponse["verdict"]) {
   if (level === "DIRECTLY DOCUMENTED" || level === "STRONG PUBLIC EVIDENCE") return "high";
   if (level === "MODERATE PUBLIC EVIDENCE") return "medium";
@@ -527,9 +539,14 @@ export default function Home() {
             <section className="folder grain result-panel-shell">
               <div className="panel-headline">
                 <div className="mono panel-kicker">WHY IT MOST LIKELY FAILED</div>
-                <span className={`badge badge-${strengthTone(data.verdict)}`}>
-                  {strengthLabel(data.verdict)}
-                </span>
+                <div className="panel-actions">
+                  <span className={`badge badge-${strengthTone(data.verdict)}`}>
+                    {strengthLabel(data.verdict)}
+                  </span>
+                  <InfoTip title="Bottom-line finding">
+                    The app first verifies that a negative trial event occurred, then selects only explanations supported by trial-specific evidence. The label describes evidence strength, not a probability. If no explanation clears the threshold, the report says insufficient evidence.
+                  </InfoTip>
+                </div>
               </div>
               <p className="result-answer">
                 {data.bottomLine}
@@ -540,7 +557,12 @@ export default function Home() {
             </section>
 
             <section className="folder grain result-panel-shell outcome-section">
-              <div className="mono panel-kicker">TRIAL ≠ PROGRAM</div>
+              <div className="section-title-row">
+                <div className="mono panel-kicker">TRIAL ≠ PROGRAM</div>
+                <InfoTip title="Trial versus program">
+                  Trial outcome describes this NCT record. Program outcome looks across the asset, sponsor, indication, related trials, and sponsor disclosures. A stopped trial does not automatically mean the entire drug program failed.
+                </InfoTip>
+              </div>
               <div className="outcome-grid">
                 <article>
                   <div className="mono outcome-label">TRIAL OUTCOME</div>
@@ -561,6 +583,9 @@ export default function Home() {
                   <div className="mono panel-kicker">TEMPORAL RECORD</div>
                   <div className="section-subcopy">Sequence is shown for context and is not treated as causal proof.</div>
                 </div>
+                <InfoTip title="Temporal record">
+                  This deterministic timeline combines registry versions, status changes, study dates, and publications. It establishes what happened and when. Timing alone is never treated as proof that one event caused another.
+                </InfoTip>
               </div>
               <div className="timeline-list">
                 {data.timeline.map((item, index) => (
@@ -575,7 +600,12 @@ export default function Home() {
             </section>
 
             <section className="folder grain result-panel-shell">
-              <div className="mono panel-kicker">EVIDENCE MATRIX</div>
+              <div className="section-title-row">
+                <div className="mono panel-kicker">EVIDENCE MATRIX</div>
+                <InfoTip title="Evidence matrix">
+                  Each row is a possible failure category. “Direct” is explicit trial-specific support; “Indirect” is relevant association; “Against” is contradictory evidence; and “Expected not found” counts category-specific evidence the system looked for but did not retrieve. Evidence strength also considers source authority, trial specificity, independent corroboration, and timing. The label is not a probability.
+                </InfoTip>
+              </div>
               <div className="section-subcopy">Only trial-specific candidates are shown. Repeated coverage of one announcement counts once.</div>
               {data.evidenceMatrix?.length ? (
                 <div className="matrix-scroll">
@@ -597,9 +627,14 @@ export default function Home() {
             </section>
 
             <section className="folder grain result-panel-shell">
-              <button className="row-btn" onClick={() => setShowMethod((s) => !s)}>
-              {showMethod ? "▾" : "▸"} [HYPOTHESES]
-            </button>
+              <div className="section-title-row">
+                <button className="row-btn" onClick={() => setShowMethod((s) => !s)}>
+                  {showMethod ? "▾" : "▸"} [HYPOTHESES]
+                </button>
+                <InfoTip title="How hypotheses are generated">
+                  A category router checks documented stop reasons and authoritative sources first. Candidate explanations must have trial-specific support, pass expected-evidence checks, survive contradiction review, and avoid duplicate source counting. Facts, interpretations, and hypotheses remain separate. Unsupported generic explanations are rejected.
+                </InfoTip>
+              </div>
             <div className="section-subcopy">Ordered by evidence quality, not certainty.</div>
               {showMethod && (
                 <div className="hypothesis-stack">
@@ -665,9 +700,14 @@ export default function Home() {
 
             <div className="result-grid">
               <section className="folder grain result-panel-shell">
-              <button className="row-btn" onClick={() => setShowOverview((s) => !s)}>
-                {showOverview ? "▾" : "▸"} [TRIAL RECORD]
-              </button>
+                <div className="section-title-row">
+                  <button className="row-btn" onClick={() => setShowOverview((s) => !s)}>
+                    {showOverview ? "▾" : "▸"} [TRIAL RECORD]
+                  </button>
+                  <InfoTip title="Trial record">
+                    These fields come from the current ClinicalTrials.gov record. Dates retain their reported ACTUAL or ESTIMATED qualifier; UNKNOWN means the registry did not provide one.
+                  </InfoTip>
+                </div>
                 {showOverview ? (
                   <div className="detail-grid">
                     <div><span>Condition</span><strong>{data.overview.condition.join(", ") || "Not reported"}</strong></div>
@@ -681,9 +721,14 @@ export default function Home() {
               </section>
 
               <section className="folder grain result-panel-shell">
-              <button className="row-btn" onClick={() => setShowSources((s) => !s)}>
-                {showSources ? "▾" : "▸"} [SOURCES] ({sourceCount(data)})
-              </button>
+                <div className="section-title-row">
+                  <button className="row-btn" onClick={() => setShowSources((s) => !s)}>
+                    {showSources ? "▾" : "▸"} [SOURCES] ({sourceCount(data)})
+                  </button>
+                  <InfoTip title="Sources">
+                    Sources are linked for verification and prioritized by authority: registry and documented sponsor or regulator records before publications and contextual trials. Articles repeating the same underlying announcement count as one source family, not independent corroboration.
+                  </InfoTip>
+                </div>
                 {showSources ? (
                   <div className="source-columns">
                     <div>
@@ -716,9 +761,14 @@ export default function Home() {
             </div>
 
             <section className="folder grain result-panel-shell">
-              <button className="row-btn" onClick={() => setShowMethod((s) => !s)}>
-                [INFO] HOW THIS WAS GENERATED
-              </button>
+              <div className="section-title-row">
+                <button className="row-btn" onClick={() => setShowMethod((s) => !s)}>
+                  [INFO] HOW THIS WAS GENERATED
+                </button>
+                <InfoTip title="Three-step investigation">
+                  The temporal agent reconstructs the record, the evidence agent maps and retrieves trial and program sources, and the evidence judge scores support, contradictions, specificity, authority, corroboration, and temporal relevance before allowing a conclusion.
+                </InfoTip>
+              </div>
               {showMethod ? (
                 <div className="method-copy">
                   First, the temporal agent compares ClinicalTrials.gov record versions and creates a deterministic event sequence. Next, the evidence agent maps the trial to its asset and program and checks registry, PubMed, SEC, FDA, and relevant EU identifiers. Finally, the judge deduplicates repeated announcements, runs category-specific expected-evidence tests, and suppresses any hypothesis without trial-specific support.
