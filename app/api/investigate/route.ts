@@ -118,7 +118,7 @@ const VERIFIED_EVIDENCE: VerifiedEvidence[] = [
     url: "https://pubmed.ncbi.nlm.nih.gov/37966285/",
     date: "2023-11-16",
     detail: "Two Phase 3 Trials of Gantenerumab in Early Alzheimer's Disease.",
-    claim: "GRADUATE I did not show significantly slower clinical decline with gantenerumab than placebo; the reported primary-outcome comparison was not statistically significant.",
+    claim: "GRADUATE I did not meet its primary endpoint: gantenerumab did not significantly slow clinical decline versus placebo (adjusted mean difference 0.31; P=0.10).",
     documentedCause: false,
   },
   {
@@ -130,7 +130,7 @@ const VERIFIED_EVIDENCE: VerifiedEvidence[] = [
     url: "https://pubmed.ncbi.nlm.nih.gov/37966285/",
     date: "2023-11-16",
     detail: "Two Phase 3 Trials of Gantenerumab in Early Alzheimer's Disease.",
-    claim: "GRADUATE II did not show significantly slower clinical decline with gantenerumab than placebo; the reported primary-outcome comparison was not statistically significant.",
+    claim: "GRADUATE II did not meet its primary endpoint: gantenerumab did not significantly slow clinical decline versus placebo (adjusted mean difference 0.19; P=0.30).",
     documentedCause: false,
   },
   {
