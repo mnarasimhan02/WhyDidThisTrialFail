@@ -586,7 +586,11 @@ function routeCategory(category: FailureCategory, support: Claim[], sources: Sou
 }
 
 function evaluateCandidates(claims: Claim[], sources: Source[], trial: ReturnType<typeof normalizeTrial>) {
-  const categories = [...new Set(claims.map((claim) => claim.category).filter(Boolean))] as FailureCategory[];
+  const documentedRoute = classifyPrimaryReason(trial.whyStopped ?? "");
+  const discovered = [...new Set(claims.map((claim) => claim.category).filter(Boolean))] as FailureCategory[];
+  // Once an authoritative registry reason is present, category-specific reasoning
+  // stays inside that route instead of offering unrelated explanations.
+  const categories = documentedRoute ? discovered.filter((category) => category === documentedRoute) : discovered;
   const candidates: Candidate[] = [];
   for (const category of categories) {
     const support = claims.filter((claim) => claim.category === category && claim.relation !== "contradiction");
@@ -631,8 +635,8 @@ function evaluateCandidates(claims: Claim[], sources: Source[], trial: ReturnTyp
 }
 
 function trialOutcome(trial: ReturnType<typeof normalizeTrial>) {
-  const status = trial.status.toLowerCase();
-  if (["recruiting", "not yet recruiting", "active, not recruiting", "enrolling by invitation"].includes(status)) return { classification: "not a failure" as FailureCategory, statement: "The registry describes this trial as ongoing; it is not treated as a failure." };
+  const status = trial.status.toLowerCase().replace(/[_-]+/g, " ").replace(/,/g, "").replace(/\s+/g, " ").trim();
+  if (["recruiting", "not yet recruiting", "active not recruiting", "enrolling by invitation"].includes(status)) return { classification: "not a failure" as FailureCategory, statement: "The registry describes this trial as ongoing; it is not treated as a failure." };
   if (["terminated", "withdrawn", "suspended"].includes(status)) return { classification: "stopped", statement: `The trial-level outcome is ${trial.status.toLowerCase()}${trial.whyStopped ? `; the registry reports: ${trial.whyStopped}` : "."}` };
   if (status === "completed") return { classification: "completed", statement: trial.hasResults ? "The trial completed and has posted results; completion alone is not a failure." : "The trial completed; the retrieved record does not establish failure." };
   return { classification: "unclear", statement: "The trial-level outcome is not clearly established by the retrieved record." };

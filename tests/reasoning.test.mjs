@@ -70,6 +70,36 @@ test("does not classify an ongoing trial as a failure", () => {
   assert.equal(outcome.classification, "not a failure");
 });
 
+test("normalizes ClinicalTrials.gov underscore statuses", () => {
+  const outcome = reasoningTestApi.trialOutcome({ ...trial, status: "ACTIVE_NOT_RECRUITING" });
+  assert.equal(outcome.classification, "not a failure");
+});
+
+test("keeps documented safety reasoning inside the safety route", () => {
+  const routedTrial = {
+    ...trial,
+    whyStopped: "Stopped because liver enzyme elevations changed the benefit-risk profile.",
+  };
+  const claims = [
+    {
+      id: "claim-1", text: routedTrial.whyStopped, kind: "documented cause", relation: "direct support",
+      category: "safety", sourceId: "ctg-current", sourceAuthority: 3, directness: 3,
+      trialSpecificity: 3, temporalRelevance: 2, entityIds: ["trial"],
+    },
+    {
+      id: "claim-2", text: "An unrelated filing mentions FDA regulatory activity.", kind: "observation",
+      relation: "direct support", category: "regulatory", sourceId: "sec", sourceAuthority: 3,
+      directness: 2, trialSpecificity: 3, temporalRelevance: 2, entityIds: ["program"],
+    },
+  ];
+  const sources = [
+    { id: "ctg-current", sourceType: "registry", provenanceKey: "registry" },
+    { id: "sec", sourceType: "sec", provenanceKey: "sec" },
+  ];
+  const candidates = reasoningTestApi.evaluateCandidates(claims, sources, routedTrial);
+  assert.deepEqual(candidates.map((candidate) => candidate.category), ["safety"]);
+});
+
 test("does not classify completion alone as a failure", () => {
   const outcome = reasoningTestApi.trialOutcome({ ...trial, status: "COMPLETED", hasResults: true });
   assert.equal(outcome.classification, "completed");
