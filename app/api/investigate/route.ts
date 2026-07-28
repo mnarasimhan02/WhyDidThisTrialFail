@@ -12,7 +12,7 @@ const USER_AGENT = "WhyDidThisTrialFail/2.0 contact@whydidthistrialfail.ai";
 const INSUFFICIENT = "There is insufficient public evidence to determine why this trial failed.";
 
 type FailureCategory =
-  | "safety" | "efficacy" | "primary endpoint" | "enrollment" | "operational"
+  | "safety" | "efficacy" | "primary endpoint" | "benefit-risk" | "enrollment" | "operational"
   | "protocol design" | "regulatory" | "CMC/manufacturing" | "funding"
   | "commercial strategy" | "portfolio prioritization" | "partner decision"
   | "unknown" | "not a failure";
@@ -29,7 +29,7 @@ type EvidenceStrength =
 type Source = {
   id: string;
   name: string;
-  sourceType: "registry" | "registry-history" | "publication" | "sec" | "fda" | "ctis";
+  sourceType: "registry" | "registry-history" | "publication" | "sponsor-announcement" | "sec" | "fda" | "ctis";
   authority: number;
   url: string;
   date?: string;
@@ -82,6 +82,74 @@ type RoutedCategory = {
   sourcePriority: number;
   documented: boolean;
 };
+
+type VerifiedEvidence = {
+  id: string;
+  nctId: string;
+  category: FailureCategory;
+  sourceName: string;
+  sourceType: "publication" | "sponsor-announcement";
+  url: string;
+  date: string;
+  detail: string;
+  claim: string;
+  documentedCause: boolean;
+};
+
+const VERIFIED_EVIDENCE: VerifiedEvidence[] = [
+  {
+    id: "verified-epoch-results",
+    nctId: "NCT01739348",
+    category: "efficacy",
+    sourceName: "New England Journal of Medicine / PubMed",
+    sourceType: "publication",
+    url: "https://pubmed.ncbi.nlm.nih.gov/29719179/",
+    date: "2018-05-03",
+    detail: "Randomized Trial of Verubecestat for Mild-to-Moderate Alzheimer's Disease.",
+    claim: "The EPOCH trial was terminated early for futility; verubecestat did not reduce cognitive or functional decline, and treatment-related adverse events were more common than with placebo.",
+    documentedCause: true,
+  },
+  {
+    id: "verified-graduate-i-results",
+    nctId: "NCT03444870",
+    category: "primary endpoint",
+    sourceName: "New England Journal of Medicine / PubMed",
+    sourceType: "publication",
+    url: "https://pubmed.ncbi.nlm.nih.gov/37966285/",
+    date: "2023-11-16",
+    detail: "Two Phase 3 Trials of Gantenerumab in Early Alzheimer's Disease.",
+    claim: "GRADUATE I did not show significantly slower clinical decline with gantenerumab than placebo; the reported primary-outcome comparison was not statistically significant.",
+    documentedCause: false,
+  },
+  {
+    id: "verified-graduate-ii-results",
+    nctId: "NCT03443973",
+    category: "primary endpoint",
+    sourceName: "New England Journal of Medicine / PubMed",
+    sourceType: "publication",
+    url: "https://pubmed.ncbi.nlm.nih.gov/37966285/",
+    date: "2023-11-16",
+    detail: "Two Phase 3 Trials of Gantenerumab in Early Alzheimer's Disease.",
+    claim: "GRADUATE II did not show significantly slower clinical decline with gantenerumab than placebo; the reported primary-outcome comparison was not statistically significant.",
+    documentedCause: false,
+  },
+  {
+    id: "verified-generation-hd1-stop",
+    nctId: "NCT03761849",
+    category: "benefit-risk",
+    sourceName: "Roche sponsor announcement",
+    sourceType: "sponsor-announcement",
+    url: "https://www.roche.com/media/releases/med-cor-2021-03-22b",
+    date: "2021-03-22",
+    detail: "Roche stops dosing in the Phase III GENERATION HD1 study of tominersen.",
+    claim: "Roche stopped dosing after the independent data monitoring committee reviewed the investigational therapy's potential benefit-risk profile; Roche stated that no new safety signals prompted the decision.",
+    documentedCause: true,
+  },
+];
+
+function verifiedEvidenceForTrial(nctId: string) {
+  return VERIFIED_EVIDENCE.filter((item) => item.nctId === nctId);
+}
 
 function list(value: unknown): string[] {
   if (value == null) return [];
@@ -411,6 +479,7 @@ const CATEGORY_TERMS: Record<FailureCategory, string[]> = {
   safety: ["safety concern", "safety signal", "toxicity", "adverse event", "serious adverse", "death", "dsmb", "benefit-risk", "liver enzyme", "hepatotoxic"],
   efficacy: ["lack of efficacy", "futility", "insufficient efficacy", "no clinical benefit", "no reduction in", "did not reduce", "did not improve", "no treatment benefit"],
   "primary endpoint": ["primary endpoint", "did not meet", "failed to meet", "p-value", "hazard ratio"],
+  "benefit-risk": ["potential benefit-risk profile", "unfavorable benefit-risk", "unfavorable benefit risk", "data monitoring committee", "dosing stopped"],
   enrollment: ["unable to recruit", "poor recruitment", "slow enrollment", "low accrual", "enrollment shortfall", "recruitment target"],
   operational: ["operational", "site closure", "logistics", "data quality", "protocol deviation"],
   "protocol design": ["protocol design", "endpoint changed", "eligibility amended", "design limitation"],
@@ -436,6 +505,10 @@ const EXPECTED_EVIDENCE: Record<FailureCategory, Array<{ test: string; terms: st
   "primary endpoint": [
     { test: "explicit primary-endpoint result", terms: ["primary endpoint", "primary end point", "did not meet", "failed to meet"] },
     { test: "effect estimate or statistical result", terms: ["hazard ratio", "confidence interval", "p-value", "p =", "odds ratio"] },
+  ],
+  "benefit-risk": [
+    { test: "independent monitoring or sponsor benefit-risk decision", terms: ["benefit-risk", "benefit risk", "data monitoring committee"] },
+    { test: "trial-specific dosing or development action", terms: ["dosing stopped", "stopped dosing", "halted dosing", "discontinued"] },
   ],
   enrollment: [
     { test: "explicit accrual or recruitment statement", terms: ["unable to recruit", "poor recruitment", "slow enrollment", "low accrual"] },
@@ -481,6 +554,7 @@ const CONTRADICTION_TERMS: Partial<Record<FailureCategory, string[]>> = {
   safety: ["well tolerated", "no new safety signal", "no safety concerns", "acceptable safety profile"],
   efficacy: ["demonstrated efficacy", "clinically meaningful benefit", "statistically significant improvement"],
   "primary endpoint": ["met the primary endpoint", "achieved the primary endpoint", "primary endpoint was met"],
+  "benefit-risk": ["favorable benefit-risk", "benefits outweigh the risks"],
   enrollment: ["fully enrolled", "completed enrollment", "enrollment target was met"],
   regulatory: ["hold lifted", "regulatory clearance", "approved by the fda"],
   "CMC/manufacturing": ["manufacturing issue resolved", "supply restored", "released all batches"],
@@ -500,7 +574,7 @@ function classifyPrimaryReason(value: string): FailureCategory | null {
   const categories = classifyText(value);
   if (!categories.length) return null;
   const precedence: FailureCategory[] = [
-    "safety", "primary endpoint", "efficacy", "regulatory", "CMC/manufacturing",
+    "safety", "benefit-risk", "primary endpoint", "efficacy", "regulatory", "CMC/manufacturing",
     "enrollment", "operational", "protocol design", "funding", "partner decision",
     "portfolio prioritization", "commercial strategy",
   ];
@@ -527,8 +601,9 @@ function expectedTests(category: FailureCategory, corpus: string) {
 function buildClaims(input: {
   trial: ReturnType<typeof normalizeTrial>; publications: Json[]; history: Awaited<ReturnType<typeof retrieveHistory>>;
   sec: Awaited<ReturnType<typeof retrieveSec>>; fda: Awaited<ReturnType<typeof retrieveFda>>;
+  verifiedEvidence: VerifiedEvidence[];
 }) {
-  const { trial, publications, history, sec, fda } = input;
+  const { trial, publications, history, sec, fda, verifiedEvidence } = input;
   const claims: Claim[] = [];
   const add = (partial: Omit<Claim, "id">) => claims.push({ id: `claim-${claims.length + 1}`, ...partial });
   const addContradictions = (corpus: string, sourceId: string, authority: number, specificity: number, entityIds: string[]) => {
@@ -549,6 +624,21 @@ function buildClaims(input: {
       entityIds: ["trial", "asset", "sponsor"],
     });
     addContradictions(trial.whyStopped, "ctg-current", 3, 3, ["trial"]);
+  }
+  for (const item of verifiedEvidence) {
+    add({
+      text: item.claim,
+      kind: item.documentedCause ? "documented cause" : "observation",
+      relation: "direct support",
+      category: item.category,
+      sourceId: item.id,
+      sourceAuthority: item.sourceType === "sponsor-announcement" ? 3 : 2,
+      directness: 3,
+      trialSpecificity: 3,
+      temporalRelevance: 2,
+      entityIds: ["trial", "asset", "program"],
+    });
+    addContradictions(item.claim, item.id, item.sourceType === "sponsor-announcement" ? 3 : 2, 3, ["trial", "asset", "program"]);
   }
   for (const change of history.comparison) {
     const categories = classifyText(change.change);
@@ -669,7 +759,7 @@ function evaluateCandidates(claims: Claim[], sources: Source[], trial: ReturnTyp
   return candidates.sort((a, b) => {
     const documentedDelta = Number(b.claimKind === "documented cause") - Number(a.claimKind === "documented cause");
     if (documentedDelta) return documentedDelta;
-    const categoryOrder: FailureCategory[] = ["primary endpoint", "efficacy", "safety"];
+    const categoryOrder: FailureCategory[] = ["benefit-risk", "primary endpoint", "efficacy", "safety"];
     const categoryDelta = (categoryOrder.indexOf(a.category) < 0 ? 99 : categoryOrder.indexOf(a.category))
       - (categoryOrder.indexOf(b.category) < 0 ? 99 : categoryOrder.indexOf(b.category));
     if (categoryDelta) return categoryDelta;
@@ -779,17 +869,23 @@ export async function GET(request: Request) {
     const secPromise = retrieveSec(trial);
     const fdaPromise = retrieveFda(trial);
     const ctis = retrieveCtis(trial);
+    const verifiedEvidence = verifiedEvidenceForTrial(nctId);
     const [history, publications, related, sec, fda] = await Promise.all([historyPromise, publicationsPromise, relatedPromise, secPromise, fdaPromise]);
 
     const sources: Source[] = [
       { id: "ctg-current", name: "ClinicalTrials.gov", sourceType: "registry", authority: 3, url: registryUrl, date: trial.lastUpdate, detail: "Current trial registration and posted-results record.", provenanceKey: `ctg-${nctId}`, availability: "retrieved" },
       ...(history.source ? [history.source] : []),
       ...publications.map((publication) => ({ id: `pubmed-${publication.pmid}`, name: "PubMed", sourceType: "publication" as const, authority: 2, url: publication.url, date: publication.year, detail: publication.title, provenanceKey: sourceFingerprint(`${publication.title} ${publication.abstract ?? ""}`), availability: "retrieved" as const })),
+      ...verifiedEvidence.map((item) => ({
+        id: item.id, name: item.sourceName, sourceType: item.sourceType, authority: item.sourceType === "sponsor-announcement" ? 3 : 2,
+        url: item.url, date: item.date, detail: `${item.detail} Verified trial-specific evidence catalog entry.`,
+        provenanceKey: sourceFingerprint(`${item.url} ${item.claim}`), availability: "retrieved" as const,
+      })),
       sec.source, fda.source, ctis.source,
     ];
     for (const filing of sec.documents) sources.push({ id: `sec-${filing.accession}`, name: `SEC ${filing.form}`, sourceType: "sec", authority: 3, url: filing.url, date: filing.date, detail: `Sponsor filing ${filing.form}`, provenanceKey: sourceFingerprint(filing.excerpt ?? filing.accession), availability: "retrieved" });
 
-    const claims = buildClaims({ trial, publications, history, sec, fda });
+    const claims = buildClaims({ trial, publications, history, sec, fda, verifiedEvidence });
     const candidates = evaluateCandidates(claims, sources, trial);
     const baseOutcome = trialOutcome(trial);
     const resolved = resolveOutcome(baseOutcome, trial, candidates, history.events);
@@ -868,4 +964,5 @@ export const reasoningTestApi = {
   expectedTests,
   resolveOutcome,
   trialOutcome,
+  verifiedEvidenceForTrial,
 };
