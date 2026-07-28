@@ -32,6 +32,20 @@ test("rejects the old generic answer vocabulary", () => {
   );
 });
 
+test("does not treat the phrase safety and efficacy as a documented safety cause", () => {
+  assert.notEqual(
+    reasoningTestApi.classifyPrimaryReason("A pre-planned analysis of safety and efficacy was completed."),
+    "safety",
+  );
+});
+
+test("recognizes trial-specific negative primary-outcome language", () => {
+  assert.equal(
+    reasoningTestApi.classifyPrimaryReason("The primary outcome was not associated with slower clinical decline."),
+    "primary endpoint",
+  );
+});
+
 test("evaluates expected evidence independently", () => {
   const tests = reasoningTestApi.expectedTests("safety", "The sponsor reported a safety concern but no adverse-event details.");
   assert.equal(tests[0].status, "found");
@@ -104,4 +118,13 @@ test("does not classify completion alone as a failure", () => {
   const outcome = reasoningTestApi.trialOutcome({ ...trial, status: "COMPLETED", hasResults: true });
   assert.equal(outcome.classification, "completed");
   assert.match(outcome.statement, /not a failure/i);
+});
+
+test("does not suppress an ongoing record with established trial-specific negative results", () => {
+  const outcome = reasoningTestApi.trialOutcome({ ...trial, status: "ACTIVE_NOT_RECRUITING" });
+  const resolved = reasoningTestApi.resolveOutcome(outcome, { ...trial, status: "ACTIVE_NOT_RECRUITING" }, [{
+    evidenceStrength: "STRONG PUBLIC EVIDENCE",
+  }], []);
+  assert.equal(resolved.suppress, false);
+  assert.equal(resolved.outcome.classification, "negative outcome reported");
 });
