@@ -318,8 +318,7 @@ async function searchPubMed(nctId: string, entityTerms: string[], indications: s
     xmlValues(article, "PMID")[0],
     xmlValues(article, "AbstractText").join(" "),
   ]));
-  const missingIds = ids.filter((pmid, index) => !(abstracts.get(pmid) || articleAbstracts[index]));
-  const fallbackAbstracts = new Map((await Promise.all(missingIds.map(async (pmid) => {
+  const indexedAbstracts = new Map((await Promise.all(ids.map(async (pmid) => {
     const data = await getJson(`${EUROPE_PMC}/search?query=${encodeURIComponent(`EXT_ID:${pmid} AND SRC:MED`)}&format=json&pageSize=1`, true);
     return [pmid, first(data?.resultList?.result?.[0]?.abstractText)] as const;
   }))).filter((entry) => entry[1]));
@@ -327,7 +326,7 @@ async function searchPubMed(nctId: string, entityTerms: string[], indications: s
     const item = summary?.result?.[pmid] ?? {};
     return {
       pmid, title: first(item.title) || "PubMed record", journal: first(item.fulljournalname, item.source) || "PubMed",
-      year: first(item.pubdate) || "Unknown year", abstract: abstracts.get(pmid) || articleAbstracts[index] || fallbackAbstracts.get(pmid) || undefined,
+      year: first(item.pubdate) || "Unknown year", abstract: indexedAbstracts.get(pmid) || abstracts.get(pmid) || articleAbstracts[index] || undefined,
       matchedByNct: exactIds.includes(pmid), matchedByContext: contextualIds.includes(pmid),
       url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
     };
