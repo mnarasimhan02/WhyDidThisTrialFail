@@ -462,25 +462,28 @@ h1.stampfont {
 .info-tip {
   position: relative;
   flex: 0 0 auto;
-  z-index: 4;
+  margin-left: auto;
+  z-index: 20;
 }
 
 .info-tip summary {
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
-  border: 1px solid var(--line);
+  width: 30px;
+  height: 30px;
+  border: 2px solid color-mix(in srgb, var(--stamp) 70%, var(--line));
   border-radius: 50%;
-  color: var(--muted);
-  background: color-mix(in srgb, var(--paper-card) 88%, white);
-  font-family: Georgia, serif;
-  font-size: 14px;
-  font-weight: 700;
+  color: var(--stamp);
+  background: color-mix(in srgb, var(--paper-card) 75%, white);
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--stamp) 18%, transparent);
+  font-family: var(--font-mono), monospace;
+  font-size: 17px;
+  font-weight: 800;
   line-height: 1;
   cursor: pointer;
   list-style: none;
-  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+  user-select: none;
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease, transform 160ms ease;
 }
 
 .info-tip summary::-webkit-details-marker {
@@ -490,10 +493,12 @@ h1.stampfont {
 .info-tip summary:hover,
 .info-tip summary:focus-visible,
 .info-tip[open] summary {
-  color: var(--stamp);
-  border-color: color-mix(in srgb, var(--stamp) 55%, var(--line));
-  background: var(--paper);
-  outline: none;
+  color: var(--paper-card);
+  border-color: var(--stamp);
+  background: var(--stamp);
+  outline: 3px solid color-mix(in srgb, var(--stamp) 18%, transparent);
+  outline-offset: 2px;
+  transform: translateY(-1px);
 }
 
 .info-popover {
