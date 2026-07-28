@@ -122,6 +122,10 @@ function dateValue(value: unknown) {
   return first((value as Json)?.date, value) || "Not reported";
 }
 
+function dateType(value: unknown) {
+  return first((value as Json)?.type) || "UNKNOWN";
+}
+
 async function getJson(url: string, optional = false): Promise<any | null> {
   try {
     const response = await fetch(url, {
@@ -211,8 +215,11 @@ function normalizeTrial(study: Json, nctId: string) {
     enrollment: Number(first(design.enrollmentInfo?.count)) || null,
     enrollmentType: first(design.enrollmentInfo?.type) || "UNKNOWN",
     startDate: dateValue(status.startDateStruct ?? status.startDate),
+    startDateType: dateType(status.startDateStruct ?? status.startDate),
     primaryCompletionDate: dateValue(status.primaryCompletionDateStruct ?? status.primaryCompletionDate),
+    primaryCompletionDateType: dateType(status.primaryCompletionDateStruct ?? status.primaryCompletionDate),
     completionDate: dateValue(status.completionDateStruct ?? status.completionDate),
+    completionDateType: dateType(status.completionDateStruct ?? status.completionDate),
     firstPosted: dateValue(status.studyFirstPostDateStruct ?? status.studyFirstSubmitDate),
     lastUpdate: dateValue(status.lastUpdatePostDateStruct ?? status.lastUpdateSubmitDate),
     hasResults: Boolean(study?.hasResults || study?.resultsSection),
@@ -285,21 +292,33 @@ async function retrieveHistory(nctId: string, registryUrl: string) {
 }
 
 async function searchPubMed(terms: string[]) {
-  const query = [...new Set(terms.filter(Boolean))].slice(0, 8).map((term) => `"${term}"`).join(" OR ");
-  if (!query) return [];
-  const search = await getJson(`${PUBMED}/esearch.fcgi?db=pubmed&retmode=json&retmax=8&term=${encodeURIComponent(query)}`, true);
-  const ids: string[] = search?.esearchresult?.idlist ?? [];
+  const [nctId, ...context] = [...new Set(terms.filter(Boolean))];
+  if (!nctId) return [];
+  const exactQuery = `"${nctId}"[All Fields]`;
+  let search = await getJson(`${PUBMED}/esearch.fcgi?db=pubmed&retmode=json&retmax=8&sort=relevance&term=${encodeURIComponent(exactQuery)}`, true);
+  let ids: string[] = search?.esearchresult?.idlist ?? [];
+  let matchedByNct = ids.length > 0;
+  if (!ids.length && context.length) {
+    const fallback = context.slice(0, 5).map((term) => `"${term}"[Title/Abstract]`).join(" AND ");
+    search = await getJson(`${PUBMED}/esearch.fcgi?db=pubmed&retmode=json&retmax=8&sort=relevance&term=${encodeURIComponent(fallback)}`, true);
+    ids = search?.esearchresult?.idlist ?? [];
+    matchedByNct = false;
+  }
   if (!ids.length) return [];
   const [summary, xml] = await Promise.all([
     getJson(`${PUBMED}/esummary.fcgi?db=pubmed&retmode=json&id=${ids.join(",")}`, true),
     getText(`${PUBMED}/efetch.fcgi?db=pubmed&id=${ids.join(",")}&retmode=xml`),
   ]);
-  const abstracts = xmlValues(xml, "AbstractText");
-  return ids.map((pmid, index) => {
+  const articles = [...xml.matchAll(/<PubmedArticle>([\s\S]*?)<\/PubmedArticle>/g)].map((match) => match[1]);
+  const abstracts = new Map(articles.map((article) => [
+    xmlValues(article, "PMID")[0],
+    xmlValues(article, "AbstractText").join(" "),
+  ]));
+  return ids.map((pmid) => {
     const item = summary?.result?.[pmid] ?? {};
     return {
       pmid, title: first(item.title) || "PubMed record", journal: first(item.fulljournalname, item.source) || "PubMed",
-      year: first(item.pubdate) || "Unknown year", abstract: abstracts[index] || undefined,
+      year: first(item.pubdate) || "Unknown year", abstract: abstracts.get(pmid) || undefined, matchedByNct,
       url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
     };
   });
@@ -380,7 +399,7 @@ function retrieveCtis(trial: ReturnType<typeof normalizeTrial>) {
 }
 
 const CATEGORY_TERMS: Record<FailureCategory, string[]> = {
-  safety: ["safety", "toxicity", "adverse event", "serious adverse", "death", "dsmb", "benefit-risk", "liver enzyme", "hepatotoxic"],
+  safety: ["safety concern", "safety signal", "toxicity", "adverse event", "serious adverse", "death", "dsmb", "benefit-risk", "liver enzyme", "hepatotoxic"],
   efficacy: ["lack of efficacy", "futility", "insufficient efficacy", "no clinical benefit"],
   "primary endpoint": ["primary endpoint", "did not meet", "failed to meet", "p-value", "hazard ratio"],
   enrollment: ["unable to recruit", "poor recruitment", "slow enrollment", "low accrual", "enrollment shortfall", "recruitment target"],
@@ -459,9 +478,13 @@ const CONTRADICTION_TERMS: Partial<Record<FailureCategory, string[]>> = {
 };
 
 function classifyText(value: string): FailureCategory[] {
-  return (Object.entries(CATEGORY_TERMS) as Array<[FailureCategory, string[]]>)
+  const categories = (Object.entries(CATEGORY_TERMS) as Array<[FailureCategory, string[]]>)
     .filter(([category, terms]) => !["unknown", "not a failure"].includes(category) && has(value, terms))
     .map(([category]) => category);
+  const negativeEndpoint = has(value, ["did not meet", "failed to meet", "not associated with slower", "no significant difference", "futility", "unlikely to meet"]);
+  const endpointContext = has(value, ["primary endpoint", "primary end point", "primary outcome", "clinical decline"]);
+  if (negativeEndpoint && endpointContext && !categories.includes("primary endpoint")) categories.push("primary endpoint");
+  return categories;
 }
 
 function classifyPrimaryReason(value: string): FailureCategory | null {
@@ -527,7 +550,7 @@ function buildClaims(input: {
   }
   for (const publication of publications) {
     const corpus = `${publication.title} ${publication.abstract ?? ""}`;
-    const explicitTrialMatch = has(corpus, [trial.nctId, trial.acronym ?? ""]);
+    const explicitTrialMatch = Boolean(publication.matchedByNct) || has(corpus, [trial.nctId, trial.acronym ?? ""]);
     for (const category of classifyText(corpus)) add({
       text: publication.abstract?.slice(0, 360) || publication.title, kind: "observation", relation: "indirect support", category,
       sourceId: `pubmed-${publication.pmid}`, sourceAuthority: 2, directness: explicitTrialMatch ? 2 : 1,
@@ -642,6 +665,43 @@ function trialOutcome(trial: ReturnType<typeof normalizeTrial>) {
   return { classification: "unclear", statement: "The trial-level outcome is not clearly established by the retrieved record." };
 }
 
+function hasPriorStop(events: TimelineEvent[]) {
+  return events.some((event) => /\b(terminated|suspended|withdrawn|dosing stopped|stopped early)\b/i.test(event.event));
+}
+
+function resolveOutcome(
+  outcome: ReturnType<typeof trialOutcome>,
+  trial: ReturnType<typeof normalizeTrial>,
+  candidates: Candidate[],
+  historyEvents: TimelineEvent[],
+) {
+  const established = candidates.some((candidate) =>
+    ["DIRECTLY DOCUMENTED", "STRONG PUBLIC EVIDENCE", "MODERATE PUBLIC EVIDENCE", "LIMITED PUBLIC EVIDENCE"].includes(candidate.evidenceStrength),
+  );
+  if ((outcome.classification === "not a failure" || outcome.classification === "completed") && established) {
+    return {
+      outcome: {
+        classification: "negative outcome reported",
+        statement: `The current registry status is ${trial.status}, but trial-specific public results document a negative outcome. Registry completion or continued follow-up does not erase that result.`,
+      },
+      suppress: false,
+    };
+  }
+  if (outcome.classification === "completed" && hasPriorStop(historyEvents)) {
+    return {
+      outcome: {
+        classification: "prior stop documented",
+        statement: `The current registry status is completed, but registry history records an earlier stop. The retrieved evidence does not by itself establish the cause.`,
+      },
+      suppress: false,
+    };
+  }
+  return {
+    outcome,
+    suppress: outcome.classification === "not a failure" || outcome.classification === "completed",
+  };
+}
+
 function programOutcome(trial: ReturnType<typeof normalizeTrial>, related: Json[], secDocuments: Json[]) {
   const active = related.filter((item) => /recruiting|active|not yet recruiting/i.test(item.status));
   const discontinued = secDocuments.some((item) => has(item.excerpt ?? "", ["discontinued development", "terminated", "reprioritized", "returned rights"]));
@@ -693,7 +753,7 @@ export async function GET(request: Request) {
     const trial = normalizeTrial(study?.studies?.[0] ?? study, nctId);
     const registryUrl = `https://clinicaltrials.gov/study/${nctId}`;
     const historyPromise = retrieveHistory(nctId, registryUrl);
-    const publicationsPromise = searchPubMed([nctId, trial.acronym ?? "", trial.title, ...trial.assets]);
+    const publicationsPromise = searchPubMed([nctId, trial.acronym ?? "", ...trial.assets, ...trial.indication]);
     const relatedPromise = relatedTrials(trial);
     const secPromise = retrieveSec(trial);
     const fdaPromise = retrieveFda(trial);
@@ -710,9 +770,11 @@ export async function GET(request: Request) {
 
     const claims = buildClaims({ trial, publications, history, sec, fda });
     const candidates = evaluateCandidates(claims, sources, trial);
-    const outcome = trialOutcome(trial);
+    const baseOutcome = trialOutcome(trial);
+    const resolved = resolveOutcome(baseOutcome, trial, candidates, history.events);
+    const outcome = resolved.outcome;
     const program = programOutcome(trial, related, sec.documents);
-    const isNotFailure = outcome.classification === "not a failure" || (outcome.classification === "completed" && !trial.whyStopped);
+    const isNotFailure = resolved.suppress;
     const hypotheses = isNotFailure ? [] : candidates.map((candidate) => hypothesisView(candidate, sources));
     const lead = candidates[0];
     const bottomLine = isNotFailure
@@ -737,7 +799,7 @@ export async function GET(request: Request) {
         title: trial.title, status: trial.status, phase: trial.phase, condition: trial.indication, intervention: trial.assets,
         sponsor: trial.sponsor, target: trial.assets[0] || trial.indication[0] || "Not reported",
         primaryObjective: trial.primaryOutcomes[0]?.measure || "Not reported", startDate: trial.startDate,
-        startDateType: "UNKNOWN", completionDate: trial.completionDate, completionDateType: "UNKNOWN",
+        startDateType: trial.startDateType, completionDate: trial.completionDate, completionDateType: trial.completionDateType,
       },
       programMap: { assetNames: trial.assets, sponsor: trial.sponsor, indication: trial.indication, acronym: trial.acronym, relatedTrialIds: related.map((item) => item.nctId) },
       trialOutcome: outcome, programOutcome: program,
@@ -783,5 +845,6 @@ export const reasoningTestApi = {
   classifyText,
   evaluateCandidates,
   expectedTests,
+  resolveOutcome,
   trialOutcome,
 };
