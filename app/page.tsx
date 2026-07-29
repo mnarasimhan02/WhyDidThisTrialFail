@@ -599,11 +599,11 @@ export default function Home() {
             <div className="facts-grid">
               <section className="folder grain result-panel-shell">
                 <div className="section-title-row"><div className="mono panel-kicker">KNOWN FACTS</div><InfoTip title="Known facts">Deterministic observations copied from retrieved public records. Every item links to its source; no causal interpretation is added.</InfoTip></div>
-                <div className="fact-list">{data.knownFacts?.map((item, index) => <a href={item.url} target="_blank" rel="noreferrer" key={index}><span>•</span><span>{item.fact}<small>{item.sourceName}</small></span></a>)}</div>
+                <div className="fact-list">{data.knownFacts?.map((item, index) => <a href={item.url} target="_blank" rel="noreferrer" key={index}><span className="ledger-icon ledger-known" aria-hidden="true">✓</span><span>{item.fact}<small>{item.sourceName}</small></span></a>)}</div>
               </section>
               <section className="folder grain result-panel-shell">
                 <div className="section-title-row"><div className="mono panel-kicker">WHAT REMAINS UNKNOWN</div><InfoTip title="What remains unknown">“Not found” means the retrieved public sources did not establish the answer. It does not mean the event or evidence does not exist.</InfoTip></div>
-                {data.unknowns?.length ? <div className="unknown-list">{data.unknowns.map((item, index) => <div key={index}><p>{item.label}</p><small>Searched: {item.searchedSources.join(", ")}</small></div>)}</div> : <p className="muted-copy">No material unknowns were identified in the displayed findings.</p>}
+                {data.unknowns?.length ? <div className="unknown-list">{data.unknowns.map((item, index) => <div className="unknown-row" key={index}><span className="ledger-icon ledger-unknown" aria-hidden="true">?</span><div><p>{item.label}</p><small>Not established in: {item.searchedSources.join(", ")}</small></div></div>)}</div> : <p className="muted-copy">No material unknowns were identified in the displayed findings.</p>}
               </section>
             </div>
 
