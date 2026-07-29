@@ -12,7 +12,7 @@ const USER_AGENT = "WhyDidThisTrialFail/2.0 contact@whydidthistrialfail.ai";
 const PROGRAM_INSUFFICIENT = "Public evidence is insufficient to determine why the broader development program ended.";
 
 type FailureCategory =
-  | "safety" | "efficacy" | "primary endpoint" | "benefit-risk" | "enrollment" | "operational"
+  | "safety" | "efficacy" | "primary endpoint" | "futility" | "benefit-risk" | "enrollment" | "operational" | "product availability"
   | "protocol design" | "regulatory" | "CMC/manufacturing" | "funding"
   | "commercial strategy" | "portfolio prioritization" | "partner decision"
   | "unknown" | "not a failure";
@@ -36,6 +36,8 @@ type Source = {
   detail: string;
   provenanceKey: string;
   availability: "retrieved" | "not found" | "not applicable" | "unavailable";
+  classification?: "PRIMARY" | "SECONDARY" | "DERIVATIVE";
+  upstreamSourceId?: string;
 };
 
 type Claim = {
@@ -62,6 +64,27 @@ type TimelineEvent = {
   sourceId: string;
   url: string;
   scope: "trial" | "program";
+  importance?: "MATERIAL" | "CONTEXTUAL" | "ADMINISTRATIVE";
+  title?: string;
+  beforeValue?: string;
+  afterValue?: string;
+  changedFields?: string[];
+  supportingClaimIds?: string[];
+  causalInterpretationProhibited?: boolean;
+};
+
+type ExplanationDecision = "DOCUMENTED" | "SUPPORTED" | "POSSIBLE" | "NOT_SUPPORTED" | "REJECTED" | "NOT_ASSESSABLE";
+
+type SourceCoverage = {
+  sourceType: string;
+  applicable: boolean;
+  searchAttempted: boolean;
+  searchCompleted: boolean;
+  recordsFound: number;
+  relevantRecordsUsed: number;
+  newestSourceDate?: string;
+  searchQuerySummary?: string;
+  note?: string;
 };
 
 type Candidate = {
@@ -323,7 +346,11 @@ function studySnapshot(version: Json) {
     enrollment: trial.enrollment,
     enrollmentType: trial.enrollmentType,
     primaryOutcomes: trial.primaryOutcomes.map((item: Json) => item.measure),
+    startDate: trial.startDate,
     completionDate: trial.completionDate,
+    phase: trial.phase,
+    assets: trial.assets,
+    sponsor: trial.sponsor,
   };
 }
 
@@ -336,6 +363,7 @@ async function retrieveHistory(nctId: string, registryUrl: string) {
     .filter((value) => Number.isInteger(value)).slice(-8);
   const versions = (await Promise.all(selected.map((version) => getJson(`${CTG_HISTORY}/${nctId}/history/${version}`, true))))
     .filter(Boolean).map(studySnapshot);
+  const dateByVersion = new Map(changes.map((change) => [change.version, first(change.date, change.lastUpdateSubmitQcDate) || "Not reported"]));
 
   const events: TimelineEvent[] = changes.map((change, index) => ({
     id: `history-${change.version}`,
@@ -352,13 +380,27 @@ async function retrieveHistory(nctId: string, registryUrl: string) {
 
   const comparison = versions.slice(1).flatMap((current, index) => {
     const previous = versions[index];
-    const changed: string[] = [];
-    if (previous.status !== current.status) changed.push(`status: ${previous.status} → ${current.status}`);
-    if (previous.enrollment !== current.enrollment) changed.push(`enrollment: ${previous.enrollment ?? "not reported"} → ${current.enrollment ?? "not reported"}`);
-    if (previous.whyStopped !== current.whyStopped && current.whyStopped) changed.push(`why stopped added: ${current.whyStopped}`);
-    if (JSON.stringify(previous.primaryOutcomes) !== JSON.stringify(current.primaryOutcomes)) changed.push("primary outcome definition changed");
-    if (previous.completionDate !== current.completionDate) changed.push(`completion date: ${previous.completionDate} → ${current.completionDate}`);
-    return changed.map((change) => ({ fromVersion: previous.version, toVersion: current.version, change }));
+    const changed: Array<{ field: string; beforeValue: string; afterValue: string }> = [];
+    const add = (field: string, beforeValue: unknown, afterValue: unknown) => {
+      const before = Array.isArray(beforeValue) ? beforeValue.join("; ") : String(beforeValue ?? "Not provided");
+      const after = Array.isArray(afterValue) ? afterValue.join("; ") : String(afterValue ?? "Not provided");
+      if (before !== after) changed.push({ field, beforeValue: before, afterValue: after });
+    };
+    add("Overall status", previous.status, current.status);
+    add("Enrollment", previous.enrollment, current.enrollment);
+    add("Why stopped", previous.whyStopped, current.whyStopped);
+    add("Primary endpoint", previous.primaryOutcomes, current.primaryOutcomes);
+    add("Start date", previous.startDate, current.startDate);
+    add("Completion date", previous.completionDate, current.completionDate);
+    add("Phase", previous.phase, current.phase);
+    add("Intervention", previous.assets, current.assets);
+    add("Sponsor", previous.sponsor, current.sponsor);
+    return changed.map((item) => ({
+      fromVersion: previous.version, toVersion: current.version,
+      date: dateByVersion.get(current.version) ?? "Not reported",
+      change: `${item.field}: ${item.beforeValue} → ${item.afterValue}`,
+      ...item,
+    }));
   });
 
   return {
@@ -373,7 +415,7 @@ async function retrieveHistory(nctId: string, registryUrl: string) {
 }
 
 async function searchPubMed(nctId: string, entityTerms: string[], indications: string[]) {
-  if (!nctId) return [];
+  if (!nctId) return { records: [] as Json[], exactCompleted: false, contextualAttempted: false, contextualCompleted: false, europePmcAttempted: 0, europePmcCompleted: 0 };
   const exactQuery = `"${nctId}"[All Fields]`;
   const exactSearch = await getJson(`${PUBMED}/esearch.fcgi?db=pubmed&retmode=json&retmax=8&sort=relevance&term=${encodeURIComponent(exactQuery)}`, true);
   const exactIds: string[] = exactSearch?.esearchresult?.idlist ?? [];
@@ -387,7 +429,7 @@ async function searchPubMed(nctId: string, entityTerms: string[], indications: s
     : null;
   const contextualIds: string[] = contextualSearch?.esearchresult?.idlist ?? [];
   const ids = [...new Set([...exactIds, ...contextualIds])].slice(0, 10);
-  if (!ids.length) return [];
+  if (!ids.length) return { records: [] as Json[], exactCompleted: exactSearch !== null, contextualAttempted: Boolean(contextualQuery), contextualCompleted: !contextualQuery || contextualSearch !== null, europePmcAttempted: 0, europePmcCompleted: 0 };
   const [summary, xml] = await Promise.all([
     getJson(`${PUBMED}/esummary.fcgi?db=pubmed&retmode=json&id=${ids.join(",")}`, true),
     getText(`${PUBMED}/efetch.fcgi?db=pubmed&id=${ids.join(",")}&rettype=abstract&retmode=xml`),
@@ -398,11 +440,12 @@ async function searchPubMed(nctId: string, entityTerms: string[], indications: s
     xmlValues(article, "PMID")[0],
     xmlValues(article, "AbstractText").join(" "),
   ]));
-  const indexedAbstracts = new Map((await Promise.all(ids.map(async (pmid) => {
+  const europePmcResults = await Promise.all(ids.map(async (pmid) => {
     const data = await getJson(`${EUROPE_PMC}/search?query=${encodeURIComponent(`EXT_ID:${pmid} AND SRC:MED`)}&format=json&pageSize=1`, true);
-    return [pmid, first(data?.resultList?.result?.[0]?.abstractText)] as const;
-  }))).filter((entry) => entry[1]));
-  return ids.map((pmid, index) => {
+    return { pmid, completed: data !== null, abstract: first(data?.resultList?.result?.[0]?.abstractText) };
+  }));
+  const indexedAbstracts = new Map(europePmcResults.filter((entry) => entry.abstract).map((entry) => [entry.pmid, entry.abstract]));
+  const records = ids.map((pmid, index) => {
     const item = summary?.result?.[pmid] ?? {};
     return {
       pmid, title: first(item.title) || "PubMed record", journal: first(item.fulljournalname, item.source) || "PubMed",
@@ -411,6 +454,11 @@ async function searchPubMed(nctId: string, entityTerms: string[], indications: s
       url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
     };
   });
+  return {
+    records, exactCompleted: exactSearch !== null, contextualAttempted: Boolean(contextualQuery),
+    contextualCompleted: !contextualQuery || contextualSearch !== null,
+    europePmcAttempted: ids.length, europePmcCompleted: europePmcResults.filter((entry) => entry.completed).length,
+  };
 }
 
 async function relatedTrials(trial: ReturnType<typeof normalizeTrial>) {
@@ -440,7 +488,7 @@ async function retrieveSec(trial: ReturnType<typeof normalizeTrial>) {
     const companyKey = normalizeCompany(first(item.title));
     return sponsorKey.length > 4 && (companyKey.includes(sponsorKey) || sponsorKey.includes(companyKey));
   });
-  if (!companies.length) return { source: notFound, documents: [] as Json[] };
+  if (!companies.length) return { source: { ...notFound, detail: "The sponsor could not be mapped to a public SEC registrant.", availability: "not applicable" as const }, documents: [] as Json[] };
   const company = companies[0];
   const cik = String(company.cik_str).padStart(10, "0");
   const submission = await getJson(`${SEC}/submissions/CIK${cik}.json`, true);
@@ -473,7 +521,7 @@ async function retrieveFda(trial: ReturnType<typeof normalizeTrial>) {
   const query = encodeURIComponent(`openfda.generic_name:"${asset}"+openfda.brand_name:"${asset}"`);
   const data = await getJson(`${OPEN_FDA}/drug/label.json?search=${query}&limit=5`, true);
   const records = data?.results ?? [];
-  return { source: records.length ? { ...base, url: `https://open.fda.gov/apis/drug/label/`, detail: `${records.length} asset-name label record(s) found; reviewed for regulatory and safety context.`, availability: "retrieved" as const } : base, records };
+  return { source: records.length ? { ...base, url: `${OPEN_FDA}/drug/label.json?search=${query}&limit=5`, detail: `${records.length} asset-name label record(s) found; reviewed for regulatory and safety context.`, availability: "retrieved" as const } : base, records };
 }
 
 function retrieveCtis(trial: ReturnType<typeof normalizeTrial>) {
@@ -490,10 +538,12 @@ function retrieveCtis(trial: ReturnType<typeof normalizeTrial>) {
 const CATEGORY_TERMS: Record<FailureCategory, string[]> = {
   safety: ["safety concern", "safety signal", "toxicity", "adverse event", "serious adverse", "death", "dsmb", "benefit-risk", "liver enzyme", "hepatotoxic"],
   efficacy: ["lack of efficacy", "futility", "insufficient efficacy", "no clinical benefit", "no reduction in", "did not reduce", "did not improve", "no treatment benefit"],
+  futility: ["futility", "futile", "unlikely to meet", "unlikely to achieve"],
   "primary endpoint": ["primary endpoint", "did not meet", "failed to meet", "p-value", "hazard ratio"],
   "benefit-risk": ["potential benefit-risk profile", "unfavorable benefit-risk", "unfavorable benefit risk", "data monitoring committee", "dosing stopped"],
   enrollment: ["unable to recruit", "poor recruitment", "slow enrollment", "low accrual", "enrollment shortfall", "recruitment target"],
   operational: ["operational", "site closure", "logistics", "data quality", "protocol deviation"],
+  "product availability": ["no longer available", "product unavailable", "drug unavailable", "intervention unavailable", "supply unavailable"],
   "protocol design": ["protocol design", "endpoint changed", "eligibility amended", "design limitation"],
   regulatory: ["clinical hold", "complete response letter", "inspection finding", "warning letter", "regulatory action"],
   "CMC/manufacturing": ["manufacturing", "batch", "stability", "impurity", "quality control", "cmc"],
@@ -514,6 +564,10 @@ const EXPECTED_EVIDENCE: Record<FailureCategory, Array<{ test: string; terms: st
     { test: "sponsor efficacy or futility statement", terms: ["lack of efficacy", "futility", "no clinical benefit", "insufficient efficacy"] },
     { test: "reported efficacy result", terms: ["objective response", "progression-free", "overall survival", "hazard ratio", "p-value"] },
   ],
+  futility: [
+    { test: "explicit interim futility assessment", terms: ["futility", "futile", "unlikely to meet", "unlikely to achieve"] },
+    { test: "trial-specific stopping or endpoint evidence", terms: ["stopped early", "terminated early", "primary endpoint"] },
+  ],
   "primary endpoint": [
     { test: "explicit primary-endpoint result", terms: ["primary endpoint", "primary end point", "did not meet", "failed to meet"] },
     { test: "effect estimate or statistical result", terms: ["hazard ratio", "confidence interval", "p-value", "p =", "odds ratio"] },
@@ -529,6 +583,10 @@ const EXPECTED_EVIDENCE: Record<FailureCategory, Array<{ test: string; terms: st
   operational: [
     { test: "explicit execution or site statement", terms: ["site closure", "operational", "logistics", "data quality"] },
     { test: "registry amendment consistent with the issue", terms: ["protocol deviation", "site terminated", "study logistics"] },
+  ],
+  "product availability": [
+    { test: "explicit intervention-availability statement", terms: ["no longer available", "product unavailable", "drug unavailable", "intervention unavailable"] },
+    { test: "source explaining why supply ended", terms: ["manufacturing", "supply", "commercial", "funding", "strategic"] },
   ],
   "protocol design": [
     { test: "documented design limitation", terms: ["design limitation", "underpowered", "protocol design"] },
@@ -586,7 +644,7 @@ function classifyPrimaryReason(value: string): FailureCategory | null {
   const categories = classifyText(value);
   if (!categories.length) return null;
   const precedence: FailureCategory[] = [
-    "safety", "benefit-risk", "primary endpoint", "efficacy", "regulatory", "CMC/manufacturing",
+    "safety", "benefit-risk", "product availability", "futility", "primary endpoint", "efficacy", "regulatory", "CMC/manufacturing",
     "enrollment", "operational", "protocol design", "funding", "partner decision",
     "portfolio prioritization", "commercial strategy",
   ];
@@ -861,22 +919,153 @@ function programOutcome(trial: ReturnType<typeof normalizeTrial>, related: Json[
   return { classification: "Insufficient evidence", statement: PROGRAM_INSUFFICIENT, evidenceStrength: "INSUFFICIENT EVIDENCE" as EvidenceStrength };
 }
 
-function conciseTimeline(events: TimelineEvent[], trial: ReturnType<typeof normalizeTrial>, publications: Json[]) {
-  const registryUrl = `https://clinicaltrials.gov/study/${trial.nctId}`;
-  const anchors: TimelineEvent[] = [
-    { id: "trial-start", date: trial.startDate, event: "Trial start", eventType: "trial start", source: "ClinicalTrials.gov", sourceId: "ctg-current", url: registryUrl, scope: "trial" },
-    ...events.filter((event, index) => index === 0 || /TERMINATED|WITHDRAWN|SUSPENDED|COMPLETED|why stopped/i.test(event.event)),
-    ...publications.slice(0, 2).map((publication) => ({ id: `publication-${publication.pmid}`, date: publication.year, event: `Publication: ${publication.title}`, eventType: "publication", source: "PubMed", sourceId: `pubmed-${publication.pmid}`, url: publication.url, scope: "program" as const })),
-    { id: "last-update", date: trial.lastUpdate, event: `Latest registry status: ${trial.status}`, eventType: "latest registry update", source: "ClinicalTrials.gov", sourceId: "ctg-current", url: registryUrl, scope: "trial" },
-  ];
-  return [...new Map(anchors.filter((event) => event.date !== "Not reported").map((event) => [`${event.date}-${event.event}`, event])).values()]
-    .sort((a, b) => Date.parse(a.date) - Date.parse(b.date)).slice(0, 8);
-}
-
 function evidenceDecision(candidate: Candidate) {
   if (["DIRECTLY DOCUMENTED", "STRONG PUBLIC EVIDENCE", "MODERATE PUBLIC EVIDENCE"].includes(candidate.evidenceStrength)) return "Accepted";
   if (candidate.contradictions.length > candidate.evidence.length) return "Rejected";
   return "Insufficient";
+}
+
+function categoryLabel(category: FailureCategory) {
+  const labels: Partial<Record<FailureCategory, string>> = {
+    efficacy: "LACK_OF_EFFICACY", "primary endpoint": "PRIMARY_ENDPOINT_NOT_MET",
+    "benefit-risk": "BENEFIT_RISK", "product availability": "PRODUCT_AVAILABILITY",
+    "CMC/manufacturing": "CMC_OR_MANUFACTURING", "commercial strategy": "BUSINESS_DECISION",
+    "portfolio prioritization": "PORTFOLIO_PRIORITIZATION", "partner decision": "PARTNER_DECISION",
+    "protocol design": "PROTOCOL_DESIGN",
+  };
+  return labels[category] ?? category.toUpperCase().replace(/[\s/-]+/g, "_");
+}
+
+function explanationAssessments(input: {
+  trial: ReturnType<typeof normalizeTrial>; claims: Claim[]; candidates: Candidate[]; sources: Source[];
+}) {
+  const { trial, claims, candidates, sources } = input;
+  const documentedCategory = classifyPrimaryReason(trial.whyStopped ?? "");
+  const candidateByCategory = new Map(candidates.map((candidate) => [candidate.category, candidate]));
+  const claimCategories = new Set(claims.map((claim) => claim.category).filter(Boolean) as FailureCategory[]);
+  const important = new Set<FailureCategory>([...(documentedCategory ? [documentedCategory] : []), ...candidateByCategory.keys(), ...claimCategories]);
+  if (documentedCategory && ["safety", "benefit-risk"].includes(documentedCategory)) important.add("efficacy");
+  if (documentedCategory === "product availability") important.add("CMC/manufacturing");
+  if (/terminated|withdrawn|suspended/i.test(trial.status)) important.add("portfolio prioritization");
+  return [...important].slice(0, 8).map((category) => {
+    const candidate = candidateByCategory.get(category);
+    const support = claims.filter((claim) => claim.category === category && claim.relation !== "contradiction");
+    const contradictions = claims.filter((claim) => claim.category === category && claim.relation === "contradiction");
+    const documented = category === documentedCategory && Boolean(trial.whyStopped);
+    const relevantSources = sources.filter((source) => support.some((claim) => claim.sourceId === source.id));
+    const sourceUnavailable = relevantSources.some((source) => source.availability === "unavailable");
+    let decision: ExplanationDecision;
+    if (documented) decision = "DOCUMENTED";
+    else if (candidate?.evidenceStrength === "STRONG PUBLIC EVIDENCE" || candidate?.evidenceStrength === "MODERATE PUBLIC EVIDENCE") decision = "SUPPORTED";
+    else if (candidate || support.length) decision = "POSSIBLE";
+    else if (contradictions.length) decision = "REJECTED";
+    else if (sourceUnavailable) decision = "NOT_ASSESSABLE";
+    else decision = "NOT_SUPPORTED";
+    const expected = candidate?.expectedEvidence ?? expectedTests(category, support.map((claim) => claim.text).join(" "));
+    const strengthValue: EvidenceStrength = documented ? "DIRECTLY DOCUMENTED" : candidate?.evidenceStrength ?? "INSUFFICIENT EVIDENCE";
+    const scope = documented ? "TRIAL" : support.some((claim) => claim.entityIds.includes("program")) ? "PROGRAM" : "ASSET";
+    const rationale = documented
+      ? `${categoryLabel(category)} is explicitly stated in the trial's primary registry record.`
+      : decision === "SUPPORTED" ? `Trial- or program-specific evidence supports this explanation, but no primary source explicitly establishes causation.`
+        : decision === "POSSIBLE" ? `Relevant evidence was found, but it is indirect, incomplete, or does not establish causation.`
+          : decision === "REJECTED" ? `Retrieved evidence materially contradicts this explanation.`
+            : decision === "NOT_ASSESSABLE" ? `The public evidence needed to assess this explanation was unavailable or inaccessible.`
+              : `No trial-specific support was identified in the sources actually searched; this is not proof that the factor did not occur.`;
+    return {
+      category: categoryLabel(category), decision, evidenceStrength: strengthValue.replaceAll(" ", "_"),
+      supportingClaimIds: support.map((claim) => claim.id), contradictingClaimIds: contradictions.map((claim) => claim.id),
+      missingExpectedEvidence: expected.filter((item) => item.status === "not found").map((item) => item.test),
+      rationale, scope, citations: support.slice(0, 4).map((claim) => {
+        const source = sources.find((item) => item.id === claim.sourceId);
+        return { claimId: claim.id, claim: claim.text, source: source?.name ?? claim.sourceId, url: source?.url ?? "#", relation: claim.relation };
+      }),
+      contradictions: contradictions.slice(0, 3).map((claim) => ({ claimId: claim.id, claim: claim.text, url: sources.find((item) => item.id === claim.sourceId)?.url ?? "#" })),
+    };
+  });
+}
+
+function evidenceGaps(explanations: ReturnType<typeof explanationAssessments>, coverage: SourceCoverage[]) {
+  const searched = coverage.filter((item) => item.searchAttempted && item.searchCompleted).map((item) => item.sourceType);
+  const inaccessible = coverage.some((item) => item.searchAttempted && !item.searchCompleted);
+  return explanations
+    .filter((item) => !["DOCUMENTED", "SUPPORTED"].includes(item.decision))
+    .map((item, index) => ({
+      id: `gap-${index + 1}`, question: `Did ${item.category.toLowerCase().replaceAll("_", " ")} materially contribute to the trial or program outcome?`,
+      category: item.category, expectedEvidence: item.missingExpectedEvidence.length ? item.missingExpectedEvidence : ["A trial-specific primary-source statement linking this factor to the outcome"],
+      sourceTypesSearched: searched, relevantEvidenceFound: item.supportingClaimIds.length > 0,
+      supportingClaimIds: item.supportingClaimIds,
+      unresolvedReason: item.decision === "NOT_ASSESSABLE" || inaccessible ? "SOURCE_INACCESSIBLE" : item.decision === "POSSIBLE" ? "INSUFFICIENT_TRIAL_SPECIFICITY" : "NO_PUBLIC_SOURCE_FOUND",
+      impact: item.category === "LACK_OF_EFFICACY" || item.category === "SAFETY" ? "WOULD_CHANGE_PRIMARY_CONCLUSION" : "WOULD_REFINE_CONCLUSION",
+      explanation: item.decision === "NOT_SUPPORTED"
+        ? `No trial-specific evidence for this explanation was identified in the completed searches. This does not establish that the factor did not occur.`
+        : item.rationale,
+    })).slice(0, 5);
+}
+
+function evidenceImplications(explanations: ReturnType<typeof explanationAssessments>) {
+  const documented = explanations.find((item) => item.decision === "DOCUMENTED" && item.supportingClaimIds.length);
+  const supported = documented ?? explanations.find((item) => ["SUPPORTED", "POSSIBLE"].includes(item.decision) && item.supportingClaimIds.length);
+  if (!supported) return [];
+  const safety = ["SAFETY", "BENEFIT_RISK"].includes(supported.category);
+  const product = supported.category === "PRODUCT_AVAILABILITY";
+  const endpoint = ["LACK_OF_EFFICACY", "PRIMARY_ENDPOINT_NOT_MET", "FUTILITY"].includes(supported.category);
+  return [{
+    id: "implication-1", implicationType: supported.decision === "DOCUMENTED" ? "DOCUMENTED_LESSON" : "EVIDENCE_SUPPORTED_IMPLICATION",
+    category: safety ? "BENEFIT_RISK_REVIEW" : product ? "PRODUCT_AVAILABILITY" : endpoint ? "ENDPOINT_SELECTION" : "PROGRAM_GOVERNANCE",
+    scope: safety ? "ASSET" : "TRIAL",
+    title: safety ? "The documented safety findings were material to benefit-risk assessment" : product ? "Intervention availability was material to trial continuity" : "The reported outcome is material to future development assessment",
+    statement: safety
+      ? "Public evidence supports attention to the documented safety findings in future benefit-risk assessment of this asset."
+      : product ? "The documented product-availability issue raises an operational-continuity question for this trial; its underlying cause is not established."
+        : "The trial-specific result should be considered in future assessment of this asset without generalizing it to the mechanism or therapeutic area.",
+    supportingClaimIds: supported.supportingClaimIds, contradictingClaimIds: supported.contradictingClaimIds,
+    evidenceStrength: supported.evidenceStrength,
+    limitations: ["The public record does not establish that a different dose, monitoring plan, population, endpoint, or protocol would have prevented the outcome."],
+  }];
+}
+
+function sourceCoverage(input: { trial: ReturnType<typeof normalizeTrial>; history: Awaited<ReturnType<typeof retrieveHistory>>; publicationSearch: Awaited<ReturnType<typeof searchPubMed>>; sources: Source[]; verifiedEvidence: VerifiedEvidence[] }) {
+  const { trial, history, publicationSearch, sources, verifiedEvidence } = input;
+  const publications = publicationSearch.records;
+  const byId = (id: string) => sources.find((source) => source.id === id);
+  const sec = byId("sec"); const fda = byId("fda"); const ctis = byId("ctis");
+  const coverage: SourceCoverage[] = [
+    { sourceType: "CLINICALTRIALS_GOV", applicable: true, searchAttempted: true, searchCompleted: true, recordsFound: 1, relevantRecordsUsed: 1, newestSourceDate: trial.lastUpdate, searchQuerySummary: trial.nctId },
+    { sourceType: "REGISTRY_HISTORY", applicable: Boolean(history.source), searchAttempted: true, searchCompleted: Boolean(history.source), recordsFound: history.events.length, relevantRecordsUsed: history.comparison.length, newestSourceDate: trial.lastUpdate, searchQuerySummary: `${trial.nctId} record versions` },
+    { sourceType: "PUBMED", applicable: true, searchAttempted: true, searchCompleted: publicationSearch.exactCompleted && publicationSearch.contextualCompleted, recordsFound: publications.length, relevantRecordsUsed: publications.filter((item) => item.matchedByNct || item.matchedByContext).length, newestSourceDate: publications[0]?.year, searchQuerySummary: `${trial.nctId}, acronym, asset, and indication`, note: publications.length ? undefined : publicationSearch.exactCompleted ? "Search completed with no matching records." : "The optional public endpoint was unavailable." },
+    { sourceType: "PUBMED_CENTRAL", applicable: publications.length > 0, searchAttempted: publicationSearch.europePmcAttempted > 0, searchCompleted: publicationSearch.europePmcAttempted > 0 && publicationSearch.europePmcCompleted === publicationSearch.europePmcAttempted, recordsFound: publications.filter((item) => item.abstract).length, relevantRecordsUsed: publications.filter((item) => item.abstract).length, note: "Europe PMC was used only as an abstract fallback for retrieved PubMed IDs." },
+    { sourceType: "FDA", applicable: fda?.availability !== "not applicable", searchAttempted: fda?.availability !== "not applicable", searchCompleted: Boolean(fda && fda.availability !== "unavailable" && fda.availability !== "not applicable"), recordsFound: fda?.availability === "retrieved" ? 1 : 0, relevantRecordsUsed: sources.some((source) => source.id === "fda" && source.availability === "retrieved") ? 1 : 0, searchQuerySummary: trial.assets[0], note: fda?.detail },
+    { sourceType: "SEC_EDGAR", applicable: sec?.availability !== "not applicable", searchAttempted: true, searchCompleted: Boolean(sec && sec.availability !== "unavailable"), recordsFound: sources.filter((source) => source.sourceType === "sec" && source.id.startsWith("sec-")).length, relevantRecordsUsed: sources.filter((source) => source.sourceType === "sec" && source.id.startsWith("sec-")).length, searchQuerySummary: `${trial.sponsor}; ${trial.nctId}; ${trial.assets.join(", ")}`, note: sec?.detail },
+    { sourceType: "EU_CTIS", applicable: ctis?.availability !== "not applicable", searchAttempted: false, searchCompleted: false, recordsFound: 0, relevantRecordsUsed: 0, note: ctis?.detail },
+    { sourceType: "SPONSOR", applicable: verifiedEvidence.some((item) => item.sourceType === "sponsor-announcement"), searchAttempted: false, searchCompleted: false, recordsFound: verifiedEvidence.filter((item) => item.sourceType === "sponsor-announcement").length, relevantRecordsUsed: verifiedEvidence.filter((item) => item.sourceType === "sponsor-announcement").length, note: "Curated trial-specific sponsor evidence was used when available; a general sponsor-site search was not performed." },
+  ];
+  return coverage;
+}
+
+function materialTimeline(history: Awaited<ReturnType<typeof retrieveHistory>>, trial: ReturnType<typeof normalizeTrial>, publications: Json[], registryUrl: string) {
+  const material = history.comparison.map((item: Json, index: number): TimelineEvent => ({
+    id: `material-${index + 1}`, date: item.date ?? "Not reported", event: item.change,
+    eventType: item.field, title: item.field, source: "ClinicalTrials.gov history", sourceId: "ctg-history", url: registryUrl,
+    scope: "trial", importance: "MATERIAL", beforeValue: item.beforeValue, afterValue: item.afterValue,
+    changedFields: [item.field], supportingClaimIds: [], causalInterpretationProhibited: true,
+  }));
+  const anchors: TimelineEvent[] = [
+    { id: "trial-start", date: trial.startDate, event: "Trial start", eventType: "Trial start", title: "Trial start", source: "ClinicalTrials.gov", sourceId: "ctg-current", url: registryUrl, scope: "trial", importance: "MATERIAL", changedFields: ["Start date"], supportingClaimIds: [], causalInterpretationProhibited: true },
+    ...material,
+    ...publications.slice(0, 2).map((publication): TimelineEvent => ({ id: `publication-${publication.pmid}`, date: publication.year, event: `Publication: ${publication.title}`, eventType: "Publication", title: "Trial results publication", source: "PubMed", sourceId: `pubmed-${publication.pmid}`, url: publication.url, scope: "program", importance: "CONTEXTUAL", changedFields: [], supportingClaimIds: [], causalInterpretationProhibited: true })),
+  ];
+  return [...new Map(anchors.filter((item) => item.date !== "Not reported").map((item) => [`${item.date}-${item.event}`, item])).values()].sort((a, b) => Date.parse(a.date) - Date.parse(b.date)).slice(0, 12);
+}
+
+function judgeReport(input: { explanations: ReturnType<typeof explanationAssessments>; implications: ReturnType<typeof evidenceImplications>; stoppingReason: ReturnType<typeof trialStoppingReason> }) {
+  const issues: Json[] = [];
+  if (input.stoppingReason.documented && !input.explanations.some((item) => item.decision === "DOCUMENTED")) issues.push({ type: "DOCUMENTED_REASON_OMITTED", severity: "CRITICAL", message: "The documented stopping reason is missing from explanations considered.", affectedClaimIds: [], affectedSection: "EXPLANATIONS_CONSIDERED" });
+  for (const item of input.explanations) {
+    if (item.decision === "DOCUMENTED" && !item.supportingClaimIds.length) issues.push({ type: "DOCUMENTED_WITHOUT_PRIMARY_CLAIM", severity: "CRITICAL", message: `${item.category} is documented without a supporting claim.`, affectedClaimIds: [], affectedSection: "EXPLANATIONS_CONSIDERED" });
+    if (item.decision === "REJECTED" && !item.contradictingClaimIds.length) issues.push({ type: "REJECTED_WITHOUT_CONTRADICTION", severity: "CRITICAL", message: `${item.category} is rejected without contradictory evidence.`, affectedClaimIds: [], affectedSection: "EXPLANATIONS_CONSIDERED" });
+  }
+  for (const item of input.implications) if (!item.supportingClaimIds.length || /would have|would succeed|proves|all similar|class fails/i.test(item.statement)) issues.push({ type: "UNSUPPORTED_GENERALIZATION", severity: "CRITICAL", message: "An implication lacks support or exceeds its evidence scope.", affectedClaimIds: item.supportingClaimIds, affectedSection: "EVIDENCE_BASED_IMPLICATIONS" });
+  return { approved: !issues.some((issue) => issue.severity === "CRITICAL"), issues };
 }
 
 function hypothesisView(candidate: Candidate, sources: Source[]) {
@@ -916,12 +1105,24 @@ export async function GET(request: Request) {
     const fdaPromise = retrieveFda(trial);
     const ctis = retrieveCtis(trial);
     const verifiedEvidence = verifiedEvidenceForTrial(nctId);
-    const [history, publications, related, sec, fda] = await Promise.all([historyPromise, publicationsPromise, relatedPromise, secPromise, fdaPromise]);
+    const [history, publicationSearch, related, sec, fda] = await Promise.all([historyPromise, publicationsPromise, relatedPromise, secPromise, fdaPromise]);
+    const publications = publicationSearch.records;
 
     const sources: Source[] = [
       { id: "ctg-current", name: "ClinicalTrials.gov", sourceType: "registry", authority: 3, url: registryUrl, date: trial.lastUpdate, detail: "Current trial registration and posted-results record.", provenanceKey: `ctg-${nctId}`, availability: "retrieved" },
       ...(history.source ? [history.source] : []),
-      ...publications.map((publication) => ({ id: `pubmed-${publication.pmid}`, name: "PubMed", sourceType: "publication" as const, authority: 2, url: publication.url, date: publication.year, detail: publication.title, provenanceKey: sourceFingerprint(`${publication.title} ${publication.abstract ?? ""}`), availability: "retrieved" as const })),
+      ...publications.map((publication) => {
+        const corpus = `${publication.title} ${publication.abstract ?? ""}`;
+        const derivative = has(corpus, ["press release", "announced that", "company reported", "sponsor reported", "according to the company"]);
+        const upstreamCategory = classifyPrimaryReason(corpus) ?? "announcement";
+        return {
+          id: `pubmed-${publication.pmid}`, name: "PubMed", sourceType: "publication" as const, authority: 2,
+          url: publication.url, date: publication.year, detail: publication.title,
+          provenanceKey: derivative ? `upstream-${nctId}-${upstreamCategory}` : sourceFingerprint(`${publication.title} ${publication.abstract ?? ""}`),
+          availability: "retrieved" as const, classification: derivative ? "DERIVATIVE" as const : "SECONDARY" as const,
+          upstreamSourceId: derivative ? `upstream-${nctId}-${upstreamCategory}` : undefined,
+        };
+      }),
       ...verifiedEvidence.map((item) => ({
         id: item.id, name: item.sourceName, sourceType: item.sourceType, authority: item.sourceType === "sponsor-announcement" ? 3 : 2,
         url: item.url, date: item.date, detail: `${item.detail} Verified trial-specific evidence catalog entry.`,
@@ -948,7 +1149,12 @@ export async function GET(request: Request) {
         ? "The current registry record does not document a trial stopping event. No confirmed trial failure is inferred."
         : `${outcome.statement} ${program.statement}`;
     const verdict: EvidenceStrength = program.evidenceStrength;
-    const timeline = conciseTimeline(history.events, trial, publications);
+    const coverage = sourceCoverage({ trial, history, publicationSearch, sources, verifiedEvidence });
+    const explanations = explanationAssessments({ trial, claims, candidates, sources });
+    const gaps = evidenceGaps(explanations, coverage);
+    const implications = evidenceImplications(explanations);
+    const judge = judgeReport({ explanations, implications, stoppingReason: stopReason });
+    const timeline = materialTimeline(history, trial, publications, registryUrl);
     const evidenceMatrix = (isNotFailure ? [] : candidates).slice(0, 6).map((candidate) => ({
       category: candidate.category, claimKind: candidate.claimKind, evidenceStrength: candidate.evidenceStrength,
       directSupport: candidate.evidence.filter((claim) => claim.relation === "direct support").length,
@@ -1008,6 +1214,16 @@ export async function GET(request: Request) {
       trialOutcome: outcome, trialStoppingReason: stopReason, programOutcome: program,
       publicEvidenceSummary: bottomLine, knownFacts, unknowns,
       trialStoppingEvidence, programEvidenceMatrix: evidenceMatrix,
+      explanationsConsidered: judge.approved ? explanations : [],
+      evidenceGaps: judge.approved ? gaps : [],
+      evidenceBasedImplications: judge.approved ? implications : [],
+      sourceCoverage: coverage,
+      provenanceSummary: {
+        independentSourceGroupsUsed: new Set(claims.filter((claim) => claim.relation !== "contradiction").map((claim) => sources.find((source) => source.id === claim.sourceId)?.provenanceKey).filter(Boolean)).size,
+        rawDocumentsUsed: new Set(claims.filter((claim) => claim.relation !== "contradiction").map((claim) => claim.sourceId)).size,
+      },
+      allRegistryVersions: history.events.map((event) => ({ ...event, importance: "ADMINISTRATIVE", causalInterpretationProhibited: true })),
+      judge,
       bottomLine, verdict, hypotheses, timeline, evidenceMatrix,
       evidenceGraph: {
         entities: [
@@ -1034,7 +1250,13 @@ export async function GET(request: Request) {
         { name: "Evidence judge", status: "done", summary: "Deduplicated source families, applied expected-evidence tests, and suppressed unsupported causal hypotheses.", signals: candidates.length ? candidates.slice(0, 3).map((candidate) => `${candidate.category}: ${candidate.evidenceStrength}`) : ["Insufficient trial-specific support"] },
       ],
       agentSummary: [`${history.events.length} registry versions`, `${claims.length} normalized claims`, `${sources.filter((source) => source.availability === "retrieved").length} retrieved source records`],
-      sources: sources.map((source) => ({ name: source.name, detail: `${source.detail} [${source.availability}]`, url: source.url })),
+      sources: sources.map((source) => ({
+        id: source.id, name: source.name, title: source.detail, organization: source.name,
+        sourceType: source.sourceType, detail: `${source.detail} [${source.availability}]`, url: source.url,
+        publicationDate: source.date, retrievedAt: new Date().toISOString(),
+        classification: source.classification ?? (["registry", "registry-history", "sponsor-announcement", "sec", "fda", "ctis"].includes(source.sourceType) ? "PRIMARY" : "SECONDARY"),
+        canonicalSourceId: source.provenanceKey, upstreamSourceId: source.upstreamSourceId, availability: source.availability,
+      })),
       registryFacts: [
         { label: "NCT ID", value: nctId }, { label: "Trial acronym", value: trial.acronym || "Not reported" },
         { label: "Asset", value: trial.assets.join(", ") || "Not reported" }, { label: "Sponsor", value: trial.sponsor },
@@ -1057,4 +1279,10 @@ export const reasoningTestApi = {
   programClaimsOnly,
   programOutcome,
   verifiedEvidenceForTrial,
+  explanationAssessments,
+  evidenceGaps,
+  evidenceImplications,
+  sourceCoverage,
+  materialTimeline,
+  judgeReport,
 };
