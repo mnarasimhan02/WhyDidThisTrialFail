@@ -190,3 +190,43 @@ test("verified MYSTIC evidence preserves negative endpoints despite ongoing foll
   assert.match(evidence.claim, /overall survival/i);
   assert.match(evidence.claim, /progression-free survival/i);
 });
+
+test("keeps a registry stopping reason deterministic and source-linked", () => {
+  const result = reasoningTestApi.trialStoppingReason(
+    { ...trial, status: "TERMINATED", whyStopped: "Stopped after a safety review." },
+    [{ id: "ctg-current", name: "ClinicalTrials.gov", url: "https://clinicaltrials.gov/study/NCT00000001" }],
+  );
+  assert.equal(result.documented, true);
+  assert.equal(result.evidenceStrength, "DIRECTLY DOCUMENTED");
+  assert.equal(result.reason, "Stopped after a safety review.");
+});
+
+test("does not invent a stopping reason for a terminated trial", () => {
+  const result = reasoningTestApi.trialStoppingReason(
+    { ...trial, status: "TERMINATED", whyStopped: null },
+    [],
+  );
+  assert.equal(result.documented, false);
+  assert.equal(result.evidenceStrength, "NOT DOCUMENTED");
+  assert.match(result.reason, /does not report a stopping reason/i);
+});
+
+test("excludes the registry stop claim from program-cause reasoning", () => {
+  const claims = [
+    { id: "stop", sourceId: "ctg-current", kind: "documented cause", entityIds: ["trial", "asset", "program"] },
+    { id: "publication", sourceId: "pubmed-1", kind: "observation", entityIds: ["trial", "asset", "program"] },
+  ];
+  assert.deepEqual(reasoningTestApi.programClaimsOnly(claims).map((claim) => claim.id), ["publication"]);
+});
+
+test("reports insufficient evidence when a stopped trial has no program evidence", () => {
+  const result = reasoningTestApi.programOutcome(trial, [], [], []);
+  assert.equal(result.classification, "Insufficient evidence");
+  assert.match(result.statement, /broader development program ended/i);
+});
+
+test("reports a continuing program when related trials remain active", () => {
+  const result = reasoningTestApi.programOutcome(trial, [{ status: "RECRUITING" }], [], []);
+  assert.equal(result.classification, "Continuing");
+  assert.match(result.statement, /not treated as program failure/i);
+});
