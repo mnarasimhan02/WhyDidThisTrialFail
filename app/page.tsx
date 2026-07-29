@@ -74,7 +74,33 @@ type InvestigationResponse = {
     source: string;
     url: string;
     scope?: "trial" | "program";
+    importance?: "MATERIAL" | "CONTEXTUAL" | "ADMINISTRATIVE";
+    title?: string;
+    beforeValue?: string;
+    afterValue?: string;
   }>;
+  allRegistryVersions?: InvestigationResponse["timeline"];
+  explanationsConsidered?: Array<{
+    category: string; decision: "DOCUMENTED" | "SUPPORTED" | "POSSIBLE" | "NOT_SUPPORTED" | "REJECTED" | "NOT_ASSESSABLE";
+    evidenceStrength: string; supportingClaimIds: string[]; contradictingClaimIds: string[];
+    missingExpectedEvidence: string[]; rationale: string; scope: "TRIAL" | "ASSET" | "PROGRAM";
+    citations: Array<{ claimId: string; claim: string; source: string; url: string; relation: string }>;
+    contradictions: Array<{ claimId: string; claim: string; url: string }>;
+  }>;
+  evidenceGaps?: Array<{
+    id: string; question: string; category: string; expectedEvidence: string[]; sourceTypesSearched: string[];
+    relevantEvidenceFound: boolean; unresolvedReason: string; impact: string; explanation: string;
+  }>;
+  evidenceBasedImplications?: Array<{
+    id: string; implicationType: string; category: string; scope: string; title: string; statement: string;
+    evidenceStrength: string; limitations: string[]; supportingClaimIds: string[];
+  }>;
+  sourceCoverage?: Array<{
+    sourceType: string; applicable: boolean; searchAttempted: boolean; searchCompleted: boolean;
+    recordsFound: number; relevantRecordsUsed: number; newestSourceDate?: string; searchQuerySummary?: string; note?: string;
+  }>;
+  provenanceSummary?: { independentSourceGroupsUsed: number; rawDocumentsUsed: number };
+  judge?: { approved: boolean; issues: Array<{ type: string; severity: string; message: string; affectedSection: string }> };
   evidenceMatrix?: Array<{
     category: string;
     claimKind: string;
@@ -308,6 +334,7 @@ export default function Home() {
   const [showOverview, setShowOverview] = useState(true);
   const [showSources, setShowSources] = useState(true);
   const [showMethod, setShowMethod] = useState(true);
+  const [showAllVersions, setShowAllVersions] = useState(false);
   const resultRef = useRef<HTMLDivElement | null>(null);
 
   const suggestions = useMemo(() => {
@@ -596,34 +623,66 @@ export default function Home() {
               </div>
             </section>
 
-            <div className="facts-grid">
-              <section className="folder grain result-panel-shell">
+            <section className="folder grain result-panel-shell">
                 <div className="section-title-row"><div className="mono panel-kicker">KNOWN FACTS</div><InfoTip title="Known facts">Deterministic observations copied from retrieved public records. Every item links to its source; no causal interpretation is added.</InfoTip></div>
                 <div className="fact-list">{data.knownFacts?.map((item, index) => <a href={item.url} target="_blank" rel="noreferrer" key={index}><span className="ledger-icon ledger-known" aria-hidden="true">✓</span><span>{item.fact}<small>{item.sourceName}</small></span></a>)}</div>
-              </section>
-              <section className="folder grain result-panel-shell">
+            </section>
+
+            <section className="folder grain result-panel-shell">
+              <div className="section-title-row"><div className="mono panel-kicker">EXPLANATIONS CONSIDERED</div><InfoTip title="Competing explanations">Every displayed explanation has a structured assessment. Rejected requires contradictory evidence; not supported means no trial-specific support was found in completed searches, not that the event did not occur.</InfoTip></div>
+              <div className="section-subcopy">Competing explanations are evaluated independently instead of being blended into one narrative.</div>
+              <div className="audit-card-stack">
+                {data.explanationsConsidered?.map((item, index) => (
+                  <details className="audit-card" key={item.category} open={item.decision === "DOCUMENTED" || item.decision === "SUPPORTED" || index === 1}>
+                    <summary>
+                      <span><strong>{item.category.replaceAll("_", " ")}</strong><small>{item.scope}</small></span>
+                      <span className={`decision decision-${item.decision.toLowerCase()}`}>{item.decision}</span>
+                    </summary>
+                    <div className="audit-card-body">
+                      <p>{item.rationale}</p>
+                      {item.citations.length ? <div><div className="mono audit-label">SUPPORTING EVIDENCE</div>{item.citations.map((citation) => <a className="audit-citation" href={citation.url} target="_blank" rel="noreferrer" key={citation.claimId}>{citation.claim}<small>{citation.source} · {citation.claimId}</small></a>)}</div> : null}
+                      {item.contradictions.length ? <div><div className="mono audit-label">CONTRADICTING EVIDENCE</div>{item.contradictions.map((citation) => <a className="audit-citation" href={citation.url} target="_blank" rel="noreferrer" key={citation.claimId}>{citation.claim}<small>{citation.claimId}</small></a>)}</div> : null}
+                      {item.missingExpectedEvidence.length ? <div><div className="mono audit-label">EXPECTED EVIDENCE NOT FOUND</div><ul>{item.missingExpectedEvidence.map((value) => <li key={value}>{value}</li>)}</ul></div> : null}
+                      <span className="mono audit-strength">{item.evidenceStrength.replaceAll("_", " ")}</span>
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </section>
+
+            <section className="folder grain result-panel-shell">
                 <div className="section-title-row"><div className="mono panel-kicker">WHAT REMAINS UNKNOWN</div><InfoTip title="What remains unknown">“Not found” means the retrieved public sources did not establish the answer. It does not mean the event or evidence does not exist.</InfoTip></div>
                 {data.unknowns?.length ? <div className="unknown-list">{data.unknowns.map((item, index) => <div className="unknown-row" key={index}><span className="ledger-icon ledger-unknown" aria-hidden="true">?</span><div><p>{item.label}</p><small>Not established in: {item.searchedSources.join(", ")}</small></div></div>)}</div> : <p className="muted-copy">No material unknowns were identified in the displayed findings.</p>}
-              </section>
-            </div>
+            </section>
+
+            <section className="folder grain result-panel-shell">
+              <div className="section-title-row"><div className="mono panel-kicker">EVIDENCE GAPS</div><InfoTip title="Evidence gaps">These are precise evidence requirements that could change or refine the assessment. They differ from unknowns by stating what source or evidence would resolve the question.</InfoTip></div>
+              {data.evidenceGaps?.length ? <div className="gap-list">{data.evidenceGaps.map((gap) => <details className="gap-card" key={gap.id}><summary><span>{gap.question}</span><span className="mono impact-chip">{gap.impact.replaceAll("_", " ")}</span></summary><div><p>{gap.explanation}</p><strong>Evidence that would resolve it</strong><ul>{gap.expectedEvidence.map((item) => <li key={item}>{item}</li>)}</ul><small>Searched: {gap.sourceTypesSearched.join(", ") || "No completed applicable search"} · {gap.unresolvedReason.replaceAll("_", " ")}</small></div></details>)}</div> : <p className="muted-copy">No specific evidence gap met the display criteria.</p>}
+            </section>
+
+            <section className="folder grain result-panel-shell">
+              <div className="section-title-row"><div className="mono panel-kicker">EVIDENCE-BASED IMPLICATIONS</div><InfoTip title="Bounded implications">Implications require supporting claim IDs, use the narrowest defensible scope, and cannot claim that another dose, population, endpoint, or protocol would have prevented the outcome.</InfoTip></div>
+              {data.evidenceBasedImplications?.length ? <div className="implication-list">{data.evidenceBasedImplications.map((item) => <article className="implication-card" key={item.id}><div className="implication-head"><span className="mono">{item.implicationType.replaceAll("_", " ")} · {item.scope}</span><span>{item.category.replaceAll("_", " ")}</span></div><h3>{item.title}</h3><p>{item.statement}</p><div className="limitation"><strong>Limitation</strong> {item.limitations.join(" ")}</div><small>Supported by {item.supportingClaimIds.join(", ")}</small></article>)}</div> : <p className="muted-copy">No evidence-based development implication can be responsibly generated from the available public record.</p>}
+            </section>
 
             <section className="folder grain result-panel-shell">
               <div className="panel-headline evidence-heading">
                 <div>
-                  <div className="mono panel-kicker">TEMPORAL RECORD</div>
+                  <div className="mono panel-kicker">MATERIAL TRIAL HISTORY</div>
                   <div className="section-subcopy">Sequence is shown for context and is not treated as causal proof.</div>
                 </div>
                 <InfoTip title="Temporal record">
                   This deterministic timeline combines registry versions, status changes, study dates, and publications. It establishes what happened and when. Timing alone is never treated as proof that one event caused another.
                 </InfoTip>
               </div>
+              <button className="history-toggle mono" onClick={() => setShowAllVersions((value) => !value)}>{showAllVersions ? "SHOW MATERIAL CHANGES" : "SHOW ALL REGISTRY VERSIONS"}</button>
               <div className="timeline-list">
-                {data.timeline.map((item, index) => (
+                {(showAllVersions ? data.allRegistryVersions ?? [] : data.timeline).map((item, index) => (
                   <a className="timeline-item" href={item.url} target="_blank" rel="noreferrer" key={`${item.date}-${index}`}>
                     <span className="timeline-dot" />
                     <span className="mono timeline-date">{formatDate(item.date)}</span>
-                    <span className="timeline-copy">{item.event}</span>
-                    <span className="mono timeline-scope">{item.scope ?? "trial"}</span>
+                    <span className="timeline-copy">{item.beforeValue !== undefined || item.afterValue !== undefined ? <><strong>{item.title}</strong><span className="timeline-diff"><span>{item.beforeValue ?? "Not provided"}</span><b>→</b><span>{item.afterValue ?? "Not provided"}</span></span></> : item.event}</span>
+                    <span className="mono timeline-scope">{item.importance ?? item.scope ?? "trial"}</span>
                   </a>
                 ))}
               </div>
@@ -663,7 +722,7 @@ export default function Home() {
               ) : <p className="muted-copy">No trial-specific causal hypothesis met the evidence threshold.</p>}
             </section>
 
-            <section className="folder grain result-panel-shell">
+            <section className="folder grain result-panel-shell legacy-hypotheses" aria-hidden="true">
               <div className="section-title-row">
                 <button className="row-btn" onClick={() => setShowMethod((s) => !s)}>
                   {showMethod ? "▾" : "▸"} [HYPOTHESES]
@@ -733,6 +792,20 @@ export default function Home() {
                   })}
                 </div>
               )}
+            </section>
+
+            <section className="folder grain result-panel-shell">
+              <div className="section-title-row"><div className="mono panel-kicker">SOURCES CHECKED</div><InfoTip title="Source coverage and provenance">A source is marked searched only when its retrieval operation completed. Raw documents that repeat the same upstream announcement share one canonical provenance group and count once for corroboration.</InfoTip></div>
+              <div className="coverage-summary"><strong>{data.provenanceSummary?.independentSourceGroupsUsed ?? 0}</strong><span>independent source groups used</span><strong>{data.provenanceSummary?.rawDocumentsUsed ?? 0}</strong><span>raw documents used</span></div>
+              <div className="matrix-scroll">
+                <table className="evidence-matrix coverage-table">
+                  <thead><tr><th>Source</th><th>Status</th><th>Found</th><th>Used</th><th>Latest</th></tr></thead>
+                  <tbody>{data.sourceCoverage?.map((source) => {
+                    const status = !source.applicable ? "Not applicable" : source.searchCompleted ? "Searched" : source.searchAttempted ? "Unavailable" : "Not searched";
+                    return <tr key={source.sourceType}><td className="matrix-category">{source.sourceType.replaceAll("_", " ")}</td><td>{status}</td><td>{source.searchCompleted ? source.recordsFound : "—"}</td><td>{source.searchCompleted ? source.relevantRecordsUsed : "—"}</td><td>{source.newestSourceDate ? formatDate(source.newestSourceDate) : "—"}</td></tr>;
+                  })}</tbody>
+                </table>
+              </div>
             </section>
 
             <div className="result-grid">
