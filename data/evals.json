@@ -1,0 +1,2375 @@
+{
+  "schemaVersion": 1,
+  "datasetName": "WhyDidThisTrialFail Eval Dataset 100",
+  "datasetVersion": "1.0.0",
+  "sourceWorkbook": "WhyDidThisTrialFail_Eval_Dataset_100.xlsx",
+  "notes": [
+    "Gold cases are regression anchors; Silver cases require live verification before immutable adjudication.",
+    "Current ClinicalTrials.gov status and dates override stale static expectations.",
+    "Expected source families are deterministic derivations from the workbook category, state, assertion, and verification level."
+  ],
+  "qualityChecks": {
+    "rowLevelCounts": {
+      "total": 100,
+      "gold": 59,
+      "silver": 41
+    },
+    "workbookSummaryCounts": {
+      "total": 100,
+      "gold": 48,
+      "silver": 52
+    },
+    "warnings": [
+      "The workbook Summary tab verification counts do not match the row-level Gold/Silver labels. Row-level labels are used."
+    ]
+  },
+  "cases": [
+    {
+      "evalId": "EVAL-001",
+      "nctId": "NCT02569398",
+      "trialShortName": "Atabecestat EARLY",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 2/3",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "SAFETY",
+      "acceptedCategories": [
+        "safety"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Lead with liver enzyme elevations / safety; reject generic efficacy hypotheses",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02569398",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-002",
+      "nctId": "NCT01224106",
+      "trialShortName": "Semagacestat IDENTITY",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "SAFETY_AND_WORSE_OUTCOMES",
+      "acceptedCategories": [
+        "safety"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Recognize safety plus cognitive/functional worsening",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT01224106",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-003",
+      "nctId": "NCT03761849",
+      "trialShortName": "Tominersen GENERATION HD1",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "BENEFIT_RISK",
+      "acceptedCategories": [
+        "benefit-risk",
+        "safety"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Do not force into pure safety or pure efficacy",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT03761849",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-004",
+      "nctId": "NCT01094548",
+      "trialShortName": "Tecemotide multiple myeloma",
+      "therapeuticArea": "Oncology",
+      "phase": "Phase 2",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "SAFETY_OR_REGULATORY",
+      "acceptedCategories": [
+        "safety",
+        "regulatory"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "MODERATE_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "FDA"
+      ],
+      "keyAssertion": "Check clinical hold/safety chronology and distinguish trial from program",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT01094548",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-005",
+      "nctId": "NCT03733951",
+      "trialShortName": "Magrolimab program trial",
+      "therapeuticArea": "Oncology",
+      "phase": "Phase 3",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "SAFETY_OR_BENEFIT_RISK",
+      "acceptedCategories": [
+        "safety",
+        "benefit-risk"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "MODERATE_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Route to safety/regulatory evidence; verify exact study-level reason",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT03733951",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-006",
+      "nctId": "NCT00409188",
+      "trialShortName": "Tecemotide START",
+      "therapeuticArea": "Oncology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_NEGATIVE",
+      "expectedPrimaryCategory": "PRIMARY_ENDPOINT_NOT_MET",
+      "acceptedCategories": [
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Completed does not equal success; recognize endpoint failure",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT00409188",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-007",
+      "nctId": "NCT00000620",
+      "trialShortName": "CAST antiarrhythmic trial",
+      "therapeuticArea": "Cardiovascular",
+      "phase": "Phase 3",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "SAFETY_MORTALITY",
+      "acceptedCategories": [
+        "safety"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Historical safety-control case; verify registry mapping",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT00000620",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-008",
+      "nctId": "NCT00000533",
+      "trialShortName": "WHI estrogen plus progestin",
+      "therapeuticArea": "Women's Health",
+      "phase": "Phase 3",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "BENEFIT_RISK",
+      "acceptedCategories": [
+        "benefit-risk",
+        "safety"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Handle mixed harms/benefits and early stopping",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT00000533",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-009",
+      "nctId": "NCT00000611",
+      "trialShortName": "ALLHAT doxazosin arm",
+      "therapeuticArea": "Cardiovascular",
+      "phase": "Phase 3",
+      "expectedTrialState": "ARM_STOPPED",
+      "expectedPrimaryCategory": "SAFETY_OR_INFERIOR_OUTCOME",
+      "acceptedCategories": [
+        "safety"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Study may continue while one arm stops",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT00000611",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-010",
+      "nctId": "NCT00000531",
+      "trialShortName": "AIM-HIGH",
+      "therapeuticArea": "Cardiovascular",
+      "phase": "Phase 3",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "FUTILITY_AND_SAFETY_SIGNAL",
+      "acceptedCategories": [
+        "safety",
+        "futility",
+        "efficacy",
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Recognize futility with safety context",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT00000531",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-011",
+      "nctId": "NCT02670083",
+      "trialShortName": "Crenezumab CREAD 1",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "FUTILITY",
+      "acceptedCategories": [
+        "futility",
+        "efficacy",
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Interim futility; no generic operational explanation",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02670083",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-012",
+      "nctId": "NCT02783573",
+      "trialShortName": "Lanabecestat AMARANTH",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 2/3",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "FUTILITY",
+      "acceptedCategories": [
+        "futility",
+        "efficacy",
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Unlikely benefit; distinguish from completed endpoint analysis",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02783573",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-013",
+      "nctId": "NCT04781543",
+      "trialShortName": "Multicenter efficacy trial",
+      "therapeuticArea": "Other",
+      "phase": "Unknown",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "FUTILITY",
+      "acceptedCategories": [
+        "futility",
+        "efficacy",
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Registry explicitly states predefined futility",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT04781543",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-014",
+      "nctId": "NCT02545283",
+      "trialShortName": "Idasanutlin + cytarabine",
+      "therapeuticArea": "Oncology",
+      "phase": "Phase 3",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "FUTILITY",
+      "acceptedCategories": [
+        "futility",
+        "efficacy",
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Registry says futility",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02545283",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-015",
+      "nctId": "NCT05517668",
+      "trialShortName": "Fomepizole efficacy trial",
+      "therapeuticArea": "Toxicology",
+      "phase": "Unknown",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "FUTILITY",
+      "acceptedCategories": [
+        "futility",
+        "efficacy",
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Futility should be primary category",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT05517668",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-016",
+      "nctId": "NCT05999799",
+      "trialShortName": "Dose-finding efficacy trial",
+      "therapeuticArea": "Other",
+      "phase": "Unknown",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "FUTILITY",
+      "acceptedCategories": [
+        "futility",
+        "efficacy",
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Explicitly no safety concern; reject safety explanation",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT05999799",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-017",
+      "nctId": "NCT04566445",
+      "trialShortName": "HORIZON Phase II",
+      "therapeuticArea": "Infectious Disease",
+      "phase": "Phase 2",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "FUTILITY",
+      "acceptedCategories": [
+        "futility",
+        "efficacy",
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Interim futility, explicitly not medical safety",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT04566445",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-018",
+      "nctId": "NCT00818389",
+      "trialShortName": "Lithium in ALS",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "FUTILITY",
+      "acceptedCategories": [
+        "futility",
+        "efficacy",
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "DSMB futility",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT00818389",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-019",
+      "nctId": "NCT05267106",
+      "trialShortName": "Efficacy and safety study",
+      "therapeuticArea": "Other",
+      "phase": "Unknown",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "FUTILITY",
+      "acceptedCategories": [
+        "futility",
+        "efficacy",
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Preplanned futility analysis",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT05267106",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-020",
+      "nctId": "NCT06726265",
+      "trialShortName": "TACTI-004",
+      "therapeuticArea": "Oncology",
+      "phase": "Phase 3",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "FUTILITY",
+      "acceptedCategories": [
+        "futility",
+        "efficacy",
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Recent IDMC futility; live-verify current registry",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT06726265",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-021",
+      "nctId": "NCT01739348",
+      "trialShortName": "Verubecestat EPOCH",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_NEGATIVE",
+      "expectedPrimaryCategory": "LACK_OF_EFFICACY_AND_SAFETY",
+      "acceptedCategories": [
+        "safety",
+        "efficacy",
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "No slowing plus adverse events",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT01739348",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-022",
+      "nctId": "NCT03444870",
+      "trialShortName": "Gantenerumab GRADUATE I",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_NEGATIVE",
+      "expectedPrimaryCategory": "PRIMARY_ENDPOINT_NOT_MET",
+      "acceptedCategories": [
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Completed negative case",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT03444870",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-023",
+      "nctId": "NCT03443973",
+      "trialShortName": "Gantenerumab GRADUATE II",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_NEGATIVE",
+      "expectedPrimaryCategory": "PRIMARY_ENDPOINT_NOT_MET",
+      "acceptedCategories": [
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Paired-study consistency",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT03443973",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-024",
+      "nctId": "NCT01900665",
+      "trialShortName": "Solanezumab EXPEDITION 3",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_NEGATIVE",
+      "expectedPrimaryCategory": "PRIMARY_ENDPOINT_NOT_MET",
+      "acceptedCategories": [
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Do not invent operational cause",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT01900665",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-025",
+      "nctId": "NCT02453282",
+      "trialShortName": "MYSTIC",
+      "therapeuticArea": "Oncology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_NEGATIVE",
+      "expectedPrimaryCategory": "PRIMARY_ENDPOINT_NOT_MET",
+      "acceptedCategories": [
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "PFS/OS endpoint failure",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02453282",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-026",
+      "nctId": "NCT03668119",
+      "trialShortName": "CANOPY-1",
+      "therapeuticArea": "Oncology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_NEGATIVE",
+      "expectedPrimaryCategory": "PRIMARY_ENDPOINT_NOT_MET",
+      "acceptedCategories": [
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Efficacy endpoint failure",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT03668119",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-027",
+      "nctId": "NCT03626545",
+      "trialShortName": "CANOPY-2",
+      "therapeuticArea": "Oncology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_NEGATIVE",
+      "expectedPrimaryCategory": "PRIMARY_ENDPOINT_NOT_MET",
+      "acceptedCategories": [
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Negative efficacy",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT03626545",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-028",
+      "nctId": "NCT03068468",
+      "trialShortName": "BIIB092 PASSPORT",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 2",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "PRIMARY_ENDPOINT_NOT_MET",
+      "acceptedCategories": [
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Explicit no safety concerns",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT03068468",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-029",
+      "nctId": "NCT05630547",
+      "trialShortName": "Endpoint-negative study",
+      "therapeuticArea": "Other",
+      "phase": "Unknown",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "PRIMARY_ENDPOINT_NOT_MET",
+      "acceptedCategories": [
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Registry explicitly states primary/key secondary endpoints not met",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT05630547",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-030",
+      "nctId": "NCT04179864",
+      "trialShortName": "Tazemetostat combination study",
+      "therapeuticArea": "Oncology",
+      "phase": "Phase 3",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "PRIMARY_ENDPOINT_NOT_MET",
+      "acceptedCategories": [
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Endpoint failure",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT04179864",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-031",
+      "nctId": "NCT04633447",
+      "trialShortName": "Guselkumab study",
+      "therapeuticArea": "Immunology",
+      "phase": "Phase 2/3",
+      "expectedTrialState": "COMPLETED_OR_STOPPED",
+      "expectedPrimaryCategory": "PRIMARY_ENDPOINT_NOT_MET",
+      "acceptedCategories": [
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Registry says primary endpoint not met",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT04633447",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-032",
+      "nctId": "NCT03577899",
+      "trialShortName": "Conbercept efficacy trial",
+      "therapeuticArea": "Ophthalmology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_NEGATIVE",
+      "expectedPrimaryCategory": "PRIMARY_ENDPOINT_NOT_MET",
+      "acceptedCategories": [
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Desired primary endpoint not met",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT03577899",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-033",
+      "nctId": "NCT00594568",
+      "trialShortName": "Tarenflurbil Phase 3",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_NEGATIVE",
+      "expectedPrimaryCategory": "LACK_OF_EFFICACY",
+      "acceptedCategories": [
+        "efficacy",
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Classic efficacy failure",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT00594568",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-034",
+      "nctId": "NCT01230853",
+      "trialShortName": "Latrepirdine CONNECTION",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_NEGATIVE",
+      "expectedPrimaryCategory": "PRIMARY_ENDPOINT_NOT_MET",
+      "acceptedCategories": [
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Primary endpoint failure",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT01230853",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-035",
+      "nctId": "NCT01760005",
+      "trialShortName": "Bapineuzumab study 1",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_NEGATIVE",
+      "expectedPrimaryCategory": "LACK_OF_EFFICACY",
+      "acceptedCategories": [
+        "efficacy",
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Sister-study consistency",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT01760005",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-036",
+      "nctId": "NCT01760031",
+      "trialShortName": "Bapineuzumab study 2",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_NEGATIVE",
+      "expectedPrimaryCategory": "LACK_OF_EFFICACY",
+      "acceptedCategories": [
+        "efficacy",
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Sister-study consistency",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT01760031",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-037",
+      "nctId": "NCT02142725",
+      "trialShortName": "Aducanumab ENGAGE",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_CONFLICTING",
+      "expectedPrimaryCategory": "CONFLICTING_EFFICACY",
+      "acceptedCategories": [
+        "efficacy",
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "MODERATE_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "One study negative; avoid simplistic conclusion",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02142725",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-038",
+      "nctId": "NCT02484547",
+      "trialShortName": "Aducanumab EMERGE",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_CONFLICTING",
+      "expectedPrimaryCategory": "CONFLICTING_EFFICACY",
+      "acceptedCategories": [
+        "efficacy",
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "MODERATE_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "Program-level conflict; preserve trial facts",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02484547",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-039",
+      "nctId": "NCT02975934",
+      "trialShortName": "ARIEL4 rucaparib",
+      "therapeuticArea": "Oncology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_OR_STOPPED",
+      "expectedPrimaryCategory": "BENEFIT_RISK_OR_OS",
+      "acceptedCategories": [
+        "benefit-risk",
+        "safety"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "MODERATE_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Verify OS/safety and program context",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02975934",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-040",
+      "nctId": "NCT05630547",
+      "trialShortName": "Duplicate-detection control",
+      "therapeuticArea": "Other",
+      "phase": "Unknown",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "PRIMARY_ENDPOINT_NOT_MET",
+      "acceptedCategories": [
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "PubMed"
+      ],
+      "keyAssertion": "System must flag duplicate NCT in eval ingestion",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT05630547",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-041",
+      "nctId": "NCT04403763",
+      "trialShortName": "AGN-241622 Phase 1/2",
+      "therapeuticArea": "Psychiatry",
+      "phase": "Phase 1/2",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "STRATEGIC_DECISION",
+      "acceptedCategories": [
+        "commercial strategy",
+        "portfolio prioritization"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Strategic considerations; do not call efficacy failure",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT04403763",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-042",
+      "nctId": "NCT05121103",
+      "trialShortName": "Safety/tolerability study",
+      "therapeuticArea": "Other",
+      "phase": "Early Phase",
+      "expectedTrialState": "WITHDRAWN_OR_TERMINATED",
+      "expectedPrimaryCategory": "STRATEGIC_BUSINESS_DECISION",
+      "acceptedCategories": [
+        "commercial strategy",
+        "funding",
+        "portfolio prioritization"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "No-enrollment/strategic edge case",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT05121103",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-043",
+      "nctId": "NCT05525247",
+      "trialShortName": "Phase 1/2 oncology study",
+      "therapeuticArea": "Oncology",
+      "phase": "Phase 1/2",
+      "expectedTrialState": "WITHDRAWN",
+      "expectedPrimaryCategory": "BUSINESS_DECISION",
+      "acceptedCategories": [
+        "commercial strategy",
+        "funding",
+        "portfolio prioritization"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Withdrawn before enrollment",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT05525247",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-044",
+      "nctId": "NCT03315143",
+      "trialShortName": "Sotagliflozin study",
+      "therapeuticArea": "Cardiovascular",
+      "phase": "Unknown",
+      "expectedTrialState": "WITHDRAWN",
+      "expectedPrimaryCategory": "BUSINESS_DECISION",
+      "acceptedCategories": [
+        "commercial strategy",
+        "funding",
+        "portfolio prioritization"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Business decision, not scientific failure",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT03315143",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-045",
+      "nctId": "NCT05713253",
+      "trialShortName": "Device study",
+      "therapeuticArea": "Device",
+      "phase": "Unknown",
+      "expectedTrialState": "WITHDRAWN",
+      "expectedPrimaryCategory": "BUSINESS_DECISION",
+      "acceptedCategories": [
+        "commercial strategy",
+        "funding",
+        "portfolio prioritization"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Explicit not safety or device performance",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT05713253",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-046",
+      "nctId": "NCT04628780",
+      "trialShortName": "Pfizer safety/tolerability study",
+      "therapeuticArea": "Other",
+      "phase": "Phase 1",
+      "expectedTrialState": "WITHDRAWN",
+      "expectedPrimaryCategory": "INTERNAL_BUSINESS_DECISION",
+      "acceptedCategories": [
+        "commercial strategy",
+        "funding",
+        "portfolio prioritization"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Do not infer safety",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT04628780",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-047",
+      "nctId": "NCT03530683",
+      "trialShortName": "Pfizer clinical study",
+      "therapeuticArea": "Other",
+      "phase": "Unknown",
+      "expectedTrialState": "WITHDRAWN",
+      "expectedPrimaryCategory": "BUSINESS_DECISION",
+      "acceptedCategories": [
+        "commercial strategy",
+        "funding",
+        "portfolio prioritization"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Business termination",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT03530683",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-048",
+      "nctId": "NCT06249165",
+      "trialShortName": "VICTORION-INCLUSION",
+      "therapeuticArea": "Cardiovascular",
+      "phase": "Unknown",
+      "expectedTrialState": "WITHDRAWN",
+      "expectedPrimaryCategory": "FUNDER_BUSINESS_DECISION",
+      "acceptedCategories": [
+        "commercial strategy",
+        "funding",
+        "portfolio prioritization"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Business closure to enrollment",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT06249165",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-049",
+      "nctId": "NCT07172867",
+      "trialShortName": "Phase 2 indication study",
+      "therapeuticArea": "Other",
+      "phase": "Phase 2",
+      "expectedTrialState": "WITHDRAWN",
+      "expectedPrimaryCategory": "BUSINESS_AND_LOW_ENROLLMENT",
+      "acceptedCategories": [
+        "commercial strategy",
+        "funding",
+        "portfolio prioritization",
+        "enrollment",
+        "operational"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Multi-cause explicit case",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT07172867",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-050",
+      "nctId": "NCT06878248",
+      "trialShortName": "CLBR001+ABBV-461",
+      "therapeuticArea": "Oncology",
+      "phase": "Phase 1",
+      "expectedTrialState": "WITHDRAWN_OR_TERMINATED",
+      "expectedPrimaryCategory": "BUSINESS_DECISION",
+      "acceptedCategories": [
+        "commercial strategy",
+        "funding",
+        "portfolio prioritization"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Recent business decision; live-verify status",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT06878248",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-051",
+      "nctId": "NCT05143177",
+      "trialShortName": "Efficacy/safety study",
+      "therapeuticArea": "Other",
+      "phase": "Unknown",
+      "expectedTrialState": "WITHDRAWN_OR_SUSPENDED",
+      "expectedPrimaryCategory": "BUSINESS_DECISION",
+      "acceptedCategories": [
+        "commercial strategy",
+        "funding",
+        "portfolio prioritization"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "DIRECTLY_DOCUMENTED",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Suspension/withdrawal status transition",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT05143177",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-052",
+      "nctId": "NCT03683719",
+      "trialShortName": "Biotech pipeline study",
+      "therapeuticArea": "Other",
+      "phase": "Phase 2",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "PORTFOLIO_PRIORITIZATION",
+      "acceptedCategories": [
+        "portfolio prioritization"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "LIMITED_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Require SEC/sponsor evidence",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT03683719",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-053",
+      "nctId": "NCT04139915",
+      "trialShortName": "Pipeline reprioritization case",
+      "therapeuticArea": "Oncology",
+      "phase": "Phase 2",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "STRATEGIC_DECISION",
+      "acceptedCategories": [
+        "commercial strategy",
+        "portfolio prioritization"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "LIMITED_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Should not infer biology without evidence",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT04139915",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-054",
+      "nctId": "NCT03214666",
+      "trialShortName": "Partner-return/discontinuation case",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 2",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "PARTNER_OR_STRATEGY",
+      "acceptedCategories": [
+        "commercial strategy",
+        "portfolio prioritization",
+        "partner decision"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "LIMITED_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Search SEC/partner announcements",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT03214666",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-055",
+      "nctId": "NCT02097849",
+      "trialShortName": "Program discontinued case",
+      "therapeuticArea": "Rare Disease",
+      "phase": "Phase 2",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "FUNDING_OR_STRATEGY",
+      "acceptedCategories": [
+        "commercial strategy",
+        "portfolio prioritization",
+        "funding"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "LIMITED_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Use primary sponsor sources",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02097849",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-056",
+      "nctId": "NCT01662895",
+      "trialShortName": "High-dose deferoxamine ICH",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 2",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "DSMB_OR_FEASIBILITY",
+      "acceptedCategories": [
+        "enrollment",
+        "operational"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "MODERATE_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Check exact stopping basis; avoid generic efficacy",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT01662895",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-057",
+      "nctId": "NCT02036450",
+      "trialShortName": "CEREBRO Alzheimer's study",
+      "therapeuticArea": "Neurology",
+      "phase": "Unknown",
+      "expectedTrialState": "TERMINATED_OR_UNKNOWN",
+      "expectedPrimaryCategory": "INSUFFICIENT_PUBLIC_EVIDENCE",
+      "acceptedCategories": [
+        "unknown",
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": null,
+      "shouldReturnInsufficientEvidence": true,
+      "minimumEvidenceStrength": "INSUFFICIENT_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Refusal test",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02036450",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-058",
+      "nctId": "NCT01837641",
+      "trialShortName": "GSK Alzheimer's study",
+      "therapeuticArea": "Neurology",
+      "phase": "Unknown",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "STRATEGIC_OR_EFFICACY",
+      "acceptedCategories": [
+        "efficacy",
+        "primary endpoint",
+        "commercial strategy",
+        "portfolio prioritization"
+      ],
+      "shouldGenerateHypotheses": null,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "LIMITED_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Separate program from trial",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT01837641",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-059",
+      "nctId": "NCT00904683",
+      "trialShortName": "Bexarotene Alzheimer's",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 2",
+      "expectedTrialState": "COMPLETED_UNCLEAR",
+      "expectedPrimaryCategory": "INSUFFICIENT_EVIDENCE",
+      "acceptedCategories": [
+        "unknown",
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": true,
+      "minimumEvidenceStrength": "INSUFFICIENT_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Do not manufacture cause",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT00904683",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-060",
+      "nctId": "NCT04372186",
+      "trialShortName": "Efficacy and safety study",
+      "therapeuticArea": "Other",
+      "phase": "Unknown",
+      "expectedTrialState": "CLOSED_OR_COMPLETED",
+      "expectedPrimaryCategory": "UNKNOWN",
+      "acceptedCategories": [
+        "unknown",
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": null,
+      "shouldReturnInsufficientEvidence": true,
+      "minimumEvidenceStrength": "INSUFFICIENT_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Live status gate",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT04372186",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-061",
+      "nctId": "NCT05757700",
+      "trialShortName": "CAR-T study",
+      "therapeuticArea": "Oncology",
+      "phase": "Phase 1",
+      "expectedTrialState": "CLOSED_OR_STOPPED",
+      "expectedPrimaryCategory": "UNKNOWN",
+      "acceptedCategories": [
+        "unknown",
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": null,
+      "shouldReturnInsufficientEvidence": true,
+      "minimumEvidenceStrength": "INSUFFICIENT_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Require trial-specific source",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT05757700",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-062",
+      "nctId": "NCT03241784",
+      "trialShortName": "T-regulatory cells in ALS",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 1",
+      "expectedTrialState": "COMPLETED_OR_CLOSED",
+      "expectedPrimaryCategory": "NOT_A_FAILURE_OR_UNKNOWN",
+      "acceptedCategories": [
+        "not a failure",
+        "unknown"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "INSUFFICIENT_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Avoid failure label solely because closed",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT03241784",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-063",
+      "nctId": "NCT05367960",
+      "trialShortName": "BPN14770 open-label extension",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 2",
+      "expectedTrialState": "CLOSED_OR_COMPLETED",
+      "expectedPrimaryCategory": "NOT_A_FAILURE_OR_UNKNOWN",
+      "acceptedCategories": [
+        "not a failure",
+        "unknown"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "INSUFFICIENT_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Extension-study edge case",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT05367960",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-064",
+      "nctId": "NCT04464226",
+      "trialShortName": "Continuation treatment study",
+      "therapeuticArea": "Other",
+      "phase": "Unknown",
+      "expectedTrialState": "COMPLETED_OR_CLOSED",
+      "expectedPrimaryCategory": "NOT_A_FAILURE_OR_UNKNOWN",
+      "acceptedCategories": [
+        "not a failure",
+        "unknown"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "INSUFFICIENT_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Do not infer failure from no recruitment",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT04464226",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-065",
+      "nctId": "NCT03890120",
+      "trialShortName": "Cilofexor PSC",
+      "therapeuticArea": "Hepatology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_OR_STOPPED",
+      "expectedPrimaryCategory": "PRIMARY_ENDPOINT_OR_UNKNOWN",
+      "acceptedCategories": [
+        "primary endpoint",
+        "unknown",
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": null,
+      "shouldReturnInsufficientEvidence": true,
+      "minimumEvidenceStrength": "LIMITED_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Verify actual outcome",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT03890120",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-066",
+      "nctId": "NCT04909723",
+      "trialShortName": "NOV-001 Phase 1/2a",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 1/2",
+      "expectedTrialState": "TERMINATED_OR_CLOSED",
+      "expectedPrimaryCategory": "SAFETY_OR_UNKNOWN",
+      "acceptedCategories": [
+        "safety",
+        "unknown",
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": null,
+      "shouldReturnInsufficientEvidence": true,
+      "minimumEvidenceStrength": "LIMITED_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Safety-title does not prove safety failure",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT04909723",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-067",
+      "nctId": "NCT04534205",
+      "trialShortName": "Safety run-in oncology trial",
+      "therapeuticArea": "Oncology",
+      "phase": "Phase 2",
+      "expectedTrialState": "ONGOING_OR_CLOSED",
+      "expectedPrimaryCategory": "UNKNOWN",
+      "acceptedCategories": [
+        "unknown",
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": true,
+      "minimumEvidenceStrength": "INSUFFICIENT_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Title mentions safety but do not infer failure",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT04534205",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-068",
+      "nctId": "NCT04596995",
+      "trialShortName": "Long-term extension",
+      "therapeuticArea": "Other",
+      "phase": "Extension",
+      "expectedTrialState": "COMPLETED_OR_CLOSED",
+      "expectedPrimaryCategory": "NOT_A_FAILURE",
+      "acceptedCategories": [
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "INSUFFICIENT_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Extension/rollover gate",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT04596995",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-069",
+      "nctId": "NCT05450692",
+      "trialShortName": "Ceralasertib combination",
+      "therapeuticArea": "Oncology",
+      "phase": "Phase 3",
+      "expectedTrialState": "ONGOING_OR_CLOSED",
+      "expectedPrimaryCategory": "UNKNOWN",
+      "acceptedCategories": [
+        "unknown",
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": true,
+      "minimumEvidenceStrength": "INSUFFICIENT_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Current status must control",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT05450692",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-070",
+      "nctId": "NCT06452277",
+      "trialShortName": "Bayer efficacy study",
+      "therapeuticArea": "Other",
+      "phase": "Unknown",
+      "expectedTrialState": "ONGOING_OR_CLOSED",
+      "expectedPrimaryCategory": "UNKNOWN",
+      "acceptedCategories": [
+        "unknown",
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": true,
+      "minimumEvidenceStrength": "INSUFFICIENT_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Live-status negative control",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT06452277",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-071",
+      "nctId": "NCT06850597",
+      "trialShortName": "Ongoing-trial negative control",
+      "therapeuticArea": "Other",
+      "phase": "Unknown",
+      "expectedTrialState": "ONGOING",
+      "expectedPrimaryCategory": "NOT_A_FAILURE",
+      "acceptedCategories": [
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "INSUFFICIENT_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Must refuse failure analysis unless current evidence changed",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT06850597",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-072",
+      "nctId": "NCT06625320",
+      "trialShortName": "Commenter-provided passed trial",
+      "therapeuticArea": "Other",
+      "phase": "Unknown",
+      "expectedTrialState": "COMPLETED_OR_POSITIVE",
+      "expectedPrimaryCategory": "NOT_A_FAILURE",
+      "acceptedCategories": [
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "INSUFFICIENT_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Must not force failure narrative",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT06625320",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-073",
+      "nctId": "NCT03887455",
+      "trialShortName": "Lecanemab CLARITY AD",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_POSITIVE",
+      "expectedPrimaryCategory": "NOT_A_FAILURE",
+      "acceptedCategories": [
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Positive-control trial",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT03887455",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-074",
+      "nctId": "NCT04468659",
+      "trialShortName": "AHEAD 3-45",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "ONGOING",
+      "expectedPrimaryCategory": "NOT_A_FAILURE",
+      "acceptedCategories": [
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "INSUFFICIENT_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Ongoing prevention study",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT04468659",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-075",
+      "nctId": "NCT04280705",
+      "trialShortName": "ACTT-1 remdesivir",
+      "therapeuticArea": "Infectious Disease",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_POSITIVE",
+      "expectedPrimaryCategory": "NOT_A_FAILURE",
+      "acceptedCategories": [
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Positive completed control",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT04280705",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-076",
+      "nctId": "NCT03581383",
+      "trialShortName": "DAPA-HF",
+      "therapeuticArea": "Cardiovascular",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_POSITIVE",
+      "expectedPrimaryCategory": "NOT_A_FAILURE",
+      "acceptedCategories": [
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Positive endpoint control",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT03581383",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-077",
+      "nctId": "NCT03036124",
+      "trialShortName": "EMPA-KIDNEY",
+      "therapeuticArea": "Renal",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_POSITIVE",
+      "expectedPrimaryCategory": "NOT_A_FAILURE",
+      "acceptedCategories": [
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Positive control",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT03036124",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-078",
+      "nctId": "NCT03675308",
+      "trialShortName": "KEYNOTE-671",
+      "therapeuticArea": "Oncology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_POSITIVE",
+      "expectedPrimaryCategory": "NOT_A_FAILURE",
+      "acceptedCategories": [
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Successful oncology control",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT03675308",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-079",
+      "nctId": "NCT02763579",
+      "trialShortName": "DESTINY-Breast03",
+      "therapeuticArea": "Oncology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_POSITIVE",
+      "expectedPrimaryCategory": "NOT_A_FAILURE",
+      "acceptedCategories": [
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Successful oncology control",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02763579",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-080",
+      "nctId": "NCT03504397",
+      "trialShortName": "SURMOUNT-1",
+      "therapeuticArea": "Metabolic",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_POSITIVE",
+      "expectedPrimaryCategory": "NOT_A_FAILURE",
+      "acceptedCategories": [
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Successful obesity trial",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT03504397",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-081",
+      "nctId": "NCT04184622",
+      "trialShortName": "SELECT semaglutide CV outcomes",
+      "therapeuticArea": "Cardiovascular",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_POSITIVE",
+      "expectedPrimaryCategory": "NOT_A_FAILURE",
+      "acceptedCategories": [
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Successful outcomes trial",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT04184622",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-082",
+      "nctId": "NCT03574597",
+      "trialShortName": "TRAILBLAZER-ALZ 2",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_POSITIVE",
+      "expectedPrimaryCategory": "NOT_A_FAILURE",
+      "acceptedCategories": [
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Positive-control with safety caveats",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT03574597",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-083",
+      "nctId": "NCT02811861",
+      "trialShortName": "CREDENCE",
+      "therapeuticArea": "Renal",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_POSITIVE",
+      "expectedPrimaryCategory": "NOT_A_FAILURE",
+      "acceptedCategories": [
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Early stop for efficacy, not failure",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02811861",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-084",
+      "nctId": "NCT02993445",
+      "trialShortName": "DAPA-CKD",
+      "therapeuticArea": "Renal",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_POSITIVE",
+      "expectedPrimaryCategory": "NOT_A_FAILURE",
+      "acceptedCategories": [
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Positive completed trial",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02993445",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-085",
+      "nctId": "NCT04368728",
+      "trialShortName": "RECOVERY dexamethasone arm",
+      "therapeuticArea": "Infectious Disease",
+      "phase": "Platform",
+      "expectedTrialState": "COMPLETED_POSITIVE",
+      "expectedPrimaryCategory": "NOT_A_FAILURE",
+      "acceptedCategories": [
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Platform-arm versus whole-study distinction",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT04368728",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-086",
+      "nctId": "NCT02130466",
+      "trialShortName": "EXPEDITION-PRO",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_OR_STOPPED",
+      "expectedPrimaryCategory": "PROGRAM_LEVEL_CONTEXT",
+      "acceptedCategories": [
+        "unknown",
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": null,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "LIMITED_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Avoid carrying sister-trial conclusion automatically",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02130466",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-087",
+      "nctId": "NCT02565511",
+      "trialShortName": "Elenbecestat MISSION AD1",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "BENEFIT_RISK",
+      "acceptedCategories": [
+        "benefit-risk",
+        "safety"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "MODERATE_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Program-wide safety/benefit-risk chronology",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02565511",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-088",
+      "nctId": "NCT02956486",
+      "trialShortName": "Elenbecestat MISSION AD2",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "BENEFIT_RISK",
+      "acceptedCategories": [
+        "benefit-risk",
+        "safety"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "MODERATE_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Paired-program consistency",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02956486",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-089",
+      "nctId": "NCT02880956",
+      "trialShortName": "CNP520 GENERATION S1",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 2/3",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "SAFETY_AND_BENEFIT_RISK",
+      "acceptedCategories": [
+        "safety",
+        "benefit-risk"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Safety signal plus program impact",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02880956",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-090",
+      "nctId": "NCT03131453",
+      "trialShortName": "CNP520 GENERATION S2",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 2/3",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "SAFETY_AND_BENEFIT_RISK",
+      "acceptedCategories": [
+        "safety",
+        "benefit-risk"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Related-trial propagation test",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT03131453",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-091",
+      "nctId": "NCT02972658",
+      "trialShortName": "Umibecestat API Generation",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 2/3",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "SAFETY_AND_BENEFIT_RISK",
+      "acceptedCategories": [
+        "safety",
+        "benefit-risk"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "MODERATE_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov",
+        "Sponsor announcement"
+      ],
+      "keyAssertion": "Verify exact trial mapping",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02972658",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-092",
+      "nctId": "NCT01303744",
+      "trialShortName": "BACE inhibitor trial",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 2",
+      "expectedTrialState": "TERMINATED_OR_STOPPED",
+      "expectedPrimaryCategory": "SAFETY_OR_EFFICACY",
+      "acceptedCategories": [
+        "safety",
+        "efficacy",
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": null,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "LIMITED_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Expected-evidence test",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT01303744",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-093",
+      "nctId": "NCT01870648",
+      "trialShortName": "Intepirdine MINDSET",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_NEGATIVE",
+      "expectedPrimaryCategory": "PRIMARY_ENDPOINT_NOT_MET",
+      "acceptedCategories": [
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Negative efficacy with program consequences",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT01870648",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-094",
+      "nctId": "NCT02079909",
+      "trialShortName": "Idalopirdine STARSHINE",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_NEGATIVE",
+      "expectedPrimaryCategory": "PRIMARY_ENDPOINT_NOT_MET",
+      "acceptedCategories": [
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "One of multiple negative sister trials",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02079909",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-095",
+      "nctId": "NCT02079246",
+      "trialShortName": "Idalopirdine STARBEAM",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_NEGATIVE",
+      "expectedPrimaryCategory": "PRIMARY_ENDPOINT_NOT_MET",
+      "acceptedCategories": [
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Sister trial",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02079246",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-096",
+      "nctId": "NCT02006641",
+      "trialShortName": "Idalopirdine STARBRIGHT",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "COMPLETED_NEGATIVE",
+      "expectedPrimaryCategory": "PRIMARY_ENDPOINT_NOT_MET",
+      "acceptedCategories": [
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Sister trial",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02006641",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-097",
+      "nctId": "NCT02008357",
+      "trialShortName": "Azeliragon STEADFAST",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 3",
+      "expectedTrialState": "TERMINATED_OR_NEGATIVE",
+      "expectedPrimaryCategory": "FUTILITY_OR_EFFICACY",
+      "acceptedCategories": [
+        "efficacy",
+        "primary endpoint",
+        "futility"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "MODERATE_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Verify trial-level stopping language",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02008357",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-098",
+      "nctId": "NCT02547818",
+      "trialShortName": "Fosgonimeton LIFT-AD",
+      "therapeuticArea": "Neurology",
+      "phase": "Phase 2/3",
+      "expectedTrialState": "COMPLETED_NEGATIVE",
+      "expectedPrimaryCategory": "PRIMARY_ENDPOINT_NOT_MET",
+      "acceptedCategories": [
+        "primary endpoint"
+      ],
+      "shouldGenerateHypotheses": true,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "STRONG_PUBLIC_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Placebo-response/design explanation only as sourced hypothesis",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT02547818",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-099",
+      "nctId": "NCT04680052",
+      "trialShortName": "Tafasitamab Phase 3",
+      "therapeuticArea": "Oncology",
+      "phase": "Phase 3",
+      "expectedTrialState": "ONGOING_OR_COMPLETED",
+      "expectedPrimaryCategory": "LIVE_STATUS_REQUIRED",
+      "acceptedCategories": [
+        "unknown",
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "INSUFFICIENT_EVIDENCE",
+      "verificationLevel": "Silver",
+      "expectedPrimarySources": [
+        "ClinicalTrials.gov"
+      ],
+      "keyAssertion": "Current-status gate; no static failure label",
+      "clinicalTrialsGovUrl": "https://clinicaltrials.gov/study/NCT04680052",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    },
+    {
+      "evalId": "EVAL-100",
+      "nctId": "NCT99999999",
+      "trialShortName": "Invalid NCT ID",
+      "therapeuticArea": "N/A",
+      "phase": "N/A",
+      "expectedTrialState": "INVALID",
+      "expectedPrimaryCategory": "INVALID_OR_UNRESOLVED",
+      "acceptedCategories": [
+        "unknown",
+        "not a failure"
+      ],
+      "shouldGenerateHypotheses": false,
+      "shouldReturnInsufficientEvidence": false,
+      "minimumEvidenceStrength": "INSUFFICIENT_EVIDENCE",
+      "verificationLevel": "Gold",
+      "expectedPrimarySources": [],
+      "keyAssertion": "Return validation error; never hallucinate",
+      "clinicalTrialsGovUrl": "",
+      "verificationNote": "Live-verify status, dates, why-stopped, results, and primary-source evidence before locking expected labels."
+    }
+  ]
+}
