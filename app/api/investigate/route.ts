@@ -9,7 +9,7 @@ const EUROPE_PMC = "https://www.ebi.ac.uk/europepmc/webservices/rest";
 const SEC = "https://data.sec.gov";
 const OPEN_FDA = "https://api.fda.gov";
 const USER_AGENT = "WhyDidThisTrialFail/2.0 contact@whydidthistrialfail.ai";
-const INSUFFICIENT = "There is insufficient public evidence to determine why this trial failed.";
+const PROGRAM_INSUFFICIENT = "Public evidence is insufficient to determine why the broader development program ended.";
 
 type FailureCategory =
   | "safety" | "efficacy" | "primary endpoint" | "benefit-risk" | "enrollment" | "operational"
@@ -788,6 +788,32 @@ function trialOutcome(trial: ReturnType<typeof normalizeTrial>) {
   return { classification: "unclear", statement: "The trial-level outcome is not clearly established by the retrieved record." };
 }
 
+function trialStoppingReason(trial: ReturnType<typeof normalizeTrial>, sources: Source[]) {
+  const registry = sources.find((source) => source.id === "ctg-current");
+  const stopped = /terminated|withdrawn|suspended/i.test(trial.status);
+  return {
+    status: trial.status,
+    reason: trial.whyStopped || (stopped
+      ? "ClinicalTrials.gov does not report a stopping reason."
+      : "No trial stopping event is documented in the current registry status."),
+    documented: Boolean(trial.whyStopped),
+    evidenceStrength: trial.whyStopped ? "DIRECTLY DOCUMENTED" as const : "NOT DOCUMENTED" as const,
+    source: {
+      name: registry?.name ?? "ClinicalTrials.gov",
+      url: registry?.url ?? `https://clinicaltrials.gov/study/${trial.nctId}`,
+      detail: trial.whyStopped ? "Current registry Why Stopped field" : "Current registry status record",
+    },
+  };
+}
+
+function programClaimsOnly(claims: Claim[]) {
+  return claims.filter((claim) => {
+    if (claim.sourceId === "ctg-history") return false;
+    if (claim.sourceId === "ctg-current" && claim.kind === "documented cause") return false;
+    return claim.entityIds.includes("program") || claim.entityIds.includes("asset");
+  });
+}
+
 function hasPriorStop(events: TimelineEvent[]) {
   return events.some((event) => /\b(terminated|suspended|withdrawn|dosing stopped|stopped early)\b/i.test(event.event));
 }
@@ -825,12 +851,14 @@ function resolveOutcome(
   };
 }
 
-function programOutcome(trial: ReturnType<typeof normalizeTrial>, related: Json[], secDocuments: Json[]) {
+function programOutcome(trial: ReturnType<typeof normalizeTrial>, related: Json[], secDocuments: Json[], candidates: Candidate[]) {
   const active = related.filter((item) => /recruiting|active|not yet recruiting/i.test(item.status));
   const discontinued = secDocuments.some((item) => has(item.excerpt ?? "", ["discontinued development", "terminated", "reprioritized", "returned rights"]));
-  if (discontinued) return { classification: "program stopped", statement: "A sponsor filing contains asset/program discontinuation language." };
-  if (active.length) return { classification: "program continues", statement: `${active.length} related asset/program trial(s) remain active; this trial outcome should not be equated with program failure.` };
-  return { classification: "not established", statement: "The retrieved public evidence does not establish whether the broader asset/program continued or stopped." };
+  if (discontinued) return { classification: "Discontinued", statement: "A sponsor filing contains asset/program-specific discontinuation language.", evidenceStrength: "DIRECTLY DOCUMENTED" as EvidenceStrength };
+  if (active.length) return { classification: "Continuing", statement: `${active.length} related asset/program trial(s) remain active; this trial outcome is not treated as program failure.`, evidenceStrength: "STRONG PUBLIC EVIDENCE" as EvidenceStrength };
+  const accepted = candidates.find((candidate) => ["DIRECTLY DOCUMENTED", "STRONG PUBLIC EVIDENCE", "MODERATE PUBLIC EVIDENCE"].includes(candidate.evidenceStrength));
+  if (accepted) return { classification: accepted.claimKind === "documented cause" ? "Established" : "Likely", statement: accepted.statement, evidenceStrength: accepted.evidenceStrength };
+  return { classification: "Insufficient evidence", statement: PROGRAM_INSUFFICIENT, evidenceStrength: "INSUFFICIENT EVIDENCE" as EvidenceStrength };
 }
 
 function conciseTimeline(events: TimelineEvent[], trial: ReturnType<typeof normalizeTrial>, publications: Json[]) {
@@ -843,6 +871,12 @@ function conciseTimeline(events: TimelineEvent[], trial: ReturnType<typeof norma
   ];
   return [...new Map(anchors.filter((event) => event.date !== "Not reported").map((event) => [`${event.date}-${event.event}`, event])).values()]
     .sort((a, b) => Date.parse(a.date) - Date.parse(b.date)).slice(0, 8);
+}
+
+function evidenceDecision(candidate: Candidate) {
+  if (["DIRECTLY DOCUMENTED", "STRONG PUBLIC EVIDENCE", "MODERATE PUBLIC EVIDENCE"].includes(candidate.evidenceStrength)) return "Accepted";
+  if (candidate.contradictions.length > candidate.evidence.length) return "Rejected";
+  return "Insufficient";
 }
 
 function hypothesisView(candidate: Candidate, sources: Source[]) {
@@ -898,20 +932,22 @@ export async function GET(request: Request) {
     for (const filing of sec.documents) sources.push({ id: `sec-${filing.accession}`, name: `SEC ${filing.form}`, sourceType: "sec", authority: 3, url: filing.url, date: filing.date, detail: `Sponsor filing ${filing.form}`, provenanceKey: sourceFingerprint(filing.excerpt ?? filing.accession), availability: "retrieved" });
 
     const claims = buildClaims({ trial, publications, history, sec, fda, verifiedEvidence });
-    const candidates = evaluateCandidates(claims, sources, trial);
+    const stopReason = trialStoppingReason(trial, sources);
+    // The trial's registry stop reason is deliberately excluded from program-cause reasoning.
+    const programClaims = programClaimsOnly(claims);
+    const candidates = evaluateCandidates(programClaims, sources, { ...trial, whyStopped: null });
     const baseOutcome = trialOutcome(trial);
     const resolved = resolveOutcome(baseOutcome, trial, candidates, history.events);
     const outcome = resolved.outcome;
-    const program = programOutcome(trial, related, sec.documents);
+    const program = programOutcome(trial, related, sec.documents, candidates);
     const isNotFailure = resolved.suppress;
     const hypotheses = isNotFailure ? [] : candidates.map((candidate) => hypothesisView(candidate, sources));
-    const lead = candidates[0];
-    const bottomLine = isNotFailure
-      ? "No confirmed trial failure was identified in the public record."
-      : lead && ["DIRECTLY DOCUMENTED", "STRONG PUBLIC EVIDENCE", "MODERATE PUBLIC EVIDENCE", "LIMITED PUBLIC EVIDENCE"].includes(lead.evidenceStrength)
-        ? `${outcome.statement} Evidence finding — ${lead.statement} ${program.statement}`
-        : INSUFFICIENT;
-    const verdict: EvidenceStrength = isNotFailure ? "INSUFFICIENT EVIDENCE" : lead?.evidenceStrength ?? "INSUFFICIENT EVIDENCE";
+    const bottomLine = stopReason.documented
+      ? `The study's stopping reason is documented: ${stopReason.reason} ${program.classification === "Insufficient evidence" ? "However, current public evidence does not establish why the broader development program ultimately ended." : program.statement}`
+      : isNotFailure
+        ? "The current registry record does not document a trial stopping event. No confirmed trial failure is inferred."
+        : `${outcome.statement} ${program.statement}`;
+    const verdict: EvidenceStrength = program.evidenceStrength;
     const timeline = conciseTimeline(history.events, trial, publications);
     const evidenceMatrix = (isNotFailure ? [] : candidates).slice(0, 6).map((candidate) => ({
       category: candidate.category, claimKind: candidate.claimKind, evidenceStrength: candidate.evidenceStrength,
@@ -920,7 +956,24 @@ export async function GET(request: Request) {
       contradictions: candidate.contradictions.length,
       missingExpectedEvidence: candidate.expectedEvidence.filter((test) => test.status === "not found").length,
       sourceFamilies: new Set(candidate.evidence.map((claim) => sources.find((source) => source.id === claim.sourceId)?.provenanceKey)).size,
+      decision: evidenceDecision(candidate),
     }));
+    const trialStoppingEvidence = [{
+      claim: stopReason.reason,
+      sourceName: stopReason.source.name,
+      url: stopReason.source.url,
+      evidenceStrength: stopReason.evidenceStrength,
+    }];
+    const knownFacts = [
+      { fact: `ClinicalTrials.gov reports the current trial status as ${trial.status}.`, sourceName: "ClinicalTrials.gov", url: registryUrl },
+      ...(trial.whyStopped ? [{ fact: `The registry's Why Stopped field states: “${trial.whyStopped}”`, sourceName: "ClinicalTrials.gov", url: registryUrl }] : []),
+      { fact: `The registry reports a ${trial.startDateType.toLowerCase()} start date of ${trial.startDate}.`, sourceName: "ClinicalTrials.gov", url: registryUrl },
+      { fact: `The registry reports a ${trial.completionDateType.toLowerCase()} completion date of ${trial.completionDate}.`, sourceName: "ClinicalTrials.gov", url: registryUrl },
+    ].filter((item) => !item.fact.includes("Not reported"));
+    const unknowns = [
+      ...(!trial.whyStopped && /terminated|withdrawn|suspended/i.test(trial.status) ? [{ label: "A trial stopping reason was not found in the current registry record.", searchedSources: ["ClinicalTrials.gov current record", "ClinicalTrials.gov history"] }] : []),
+      ...(program.classification === "Insufficient evidence" ? [{ label: "Why the broader asset or development program ended was not established by the retrieved public evidence.", searchedSources: ["PubMed", "SEC EDGAR", "FDA", "EU CTIS", "related ClinicalTrials.gov records"] }] : []),
+    ];
 
     return NextResponse.json({
       nctId, fetchedAt: new Date().toISOString(), sourceTimestamp: trial.lastUpdate,
@@ -931,7 +984,9 @@ export async function GET(request: Request) {
         startDateType: trial.startDateType, completionDate: trial.completionDate, completionDateType: trial.completionDateType,
       },
       programMap: { assetNames: trial.assets, sponsor: trial.sponsor, indication: trial.indication, acronym: trial.acronym, relatedTrialIds: related.map((item) => item.nctId) },
-      trialOutcome: outcome, programOutcome: program,
+      trialOutcome: outcome, trialStoppingReason: stopReason, programOutcome: program,
+      publicEvidenceSummary: bottomLine, knownFacts, unknowns,
+      trialStoppingEvidence, programEvidenceMatrix: evidenceMatrix,
       bottomLine, verdict, hypotheses, timeline, evidenceMatrix,
       evidenceGraph: {
         entities: [
@@ -953,7 +1008,8 @@ export async function GET(request: Request) {
       evidenceModel: { directFacts: claims.filter((claim) => claim.kind === "documented cause" || claim.kind === "observation").length, derivedFacts: history.comparison.length, inferences: claims.filter((claim) => claim.kind.includes("hypothesis")).length, unsupportedClaims: 0 },
       workflow: [
         { name: "Temporal evidence agent", status: "done", summary: `Compared ${history.events.length} registry versions and built the event timeline before reasoning.`, signals: history.comparison.slice(0, 4).map((item) => item.change) },
-        { name: "Trial + program evidence agent", status: "done", summary: "Mapped the trial to its asset, sponsor, indication, acronym, related trials, and relevant public-source routes.", signals: [`Trial outcome: ${outcome.classification}`, `Program outcome: ${program.classification}`] },
+        { name: "Trial stopping facts", status: "done", summary: "Read the trial status and Why Stopped field deterministically; no stopping reason was inferred.", signals: [`Trial status: ${trial.status}`, `Stopping reason: ${stopReason.evidenceStrength}`] },
+        { name: "Program evidence agent", status: "done", summary: "Investigated the asset/program separately using publications, related trials, sponsor filings, and regulator routes.", signals: [`Program outcome: ${program.classification}`, `${programClaims.length} program-relevant claims`] },
         { name: "Evidence judge", status: "done", summary: "Deduplicated source families, applied expected-evidence tests, and suppressed unsupported causal hypotheses.", signals: candidates.length ? candidates.slice(0, 3).map((candidate) => `${candidate.category}: ${candidate.evidenceStrength}`) : ["Insufficient trial-specific support"] },
       ],
       agentSummary: [`${history.events.length} registry versions`, `${claims.length} normalized claims`, `${sources.filter((source) => source.availability === "retrieved").length} retrieved source records`],
@@ -976,5 +1032,8 @@ export const reasoningTestApi = {
   expectedTests,
   resolveOutcome,
   trialOutcome,
+  trialStoppingReason,
+  programClaimsOnly,
+  programOutcome,
   verifiedEvidenceForTrial,
 };
