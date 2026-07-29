@@ -77,6 +77,25 @@ Generic explanations such as patient selection, target biology, dose, comparator
 
 The internal score considers source authority, directness, trial specificity, independent corroboration, temporal relevance, and contradictions. The UI displays evidence-strength labels, never a probability.
 
+## Iteration 3: trial stop is not program failure
+
+The reasoning pipeline now treats two questions as separate investigations:
+
+1. **Why did this trial stop?** This is deterministic. The app reports the current ClinicalTrials.gov status and explicit `Why Stopped` text, with a direct source link. It never invents a missing stopping reason.
+2. **What happened to the broader program?** This is evaluated independently across trial-specific publications, related studies, sponsor disclosures, SEC EDGAR, FDA, and relevant EU routes. A terminated trial is not evidence that the asset or program failed.
+
+The report now includes:
+
+- `WHAT THE PUBLIC EVIDENCE SHOWS`, a concise facts-first summary
+- separate Trial / Program evidence badges
+- a cited `KNOWN FACTS` panel
+- a `WHAT REMAINS UNKNOWN` panel where `not found` is never presented as `did not occur`
+- a material-change timeline that does not use timing as causal proof
+- Matrix A for deterministic trial-stopping evidence
+- Matrix B for program-failure candidates, contradictions, missing expected evidence, strength, and decision
+
+Program hypotheses are generated only when program-relevant evidence clears the configured threshold. Otherwise the system returns: `Public evidence is insufficient to determine why the broader development program ended.`
+
 ## Data sources
 
 The app uses only public sources.
