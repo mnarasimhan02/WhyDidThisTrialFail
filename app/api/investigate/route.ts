@@ -190,6 +190,7 @@ function list(value: unknown): string[] {
   if (value == null) return [];
   if (Array.isArray(value)) return value.flatMap(list).map((x) => x.trim()).filter(Boolean);
   if (typeof value === "string") return value.trim() ? [value.trim()] : [];
+  if (typeof value === "number" || typeof value === "boolean") return [String(value)];
   if (typeof value === "object") {
     const item = value as Json;
     return [...list(item.name), ...list(item.term), ...list(item.label), ...list(item.title), ...list(item.value)];
@@ -950,6 +951,7 @@ function explanationAssessments(input: {
   return [...important].slice(0, 8).map((category) => {
     const candidate = candidateByCategory.get(category);
     const support = claims.filter((claim) => claim.category === category && claim.relation !== "contradiction");
+    const substantiveSupport = support.filter((claim) => claim.directness >= 2 || claim.kind === "documented cause");
     const contradictions = claims.filter((claim) => claim.category === category && claim.relation === "contradiction");
     const documented = category === documentedCategory && Boolean(trial.whyStopped);
     const relevantSources = sources.filter((source) => support.some((claim) => claim.sourceId === source.id));
@@ -957,7 +959,7 @@ function explanationAssessments(input: {
     let decision: ExplanationDecision;
     if (documented) decision = "DOCUMENTED";
     else if (candidate?.evidenceStrength === "STRONG PUBLIC EVIDENCE" || candidate?.evidenceStrength === "MODERATE PUBLIC EVIDENCE") decision = "SUPPORTED";
-    else if (candidate || support.length) decision = "POSSIBLE";
+    else if (candidate || substantiveSupport.length) decision = "POSSIBLE";
     else if (contradictions.length) decision = "REJECTED";
     else if (sourceUnavailable) decision = "NOT_ASSESSABLE";
     else decision = "NOT_SUPPORTED";
@@ -973,9 +975,9 @@ function explanationAssessments(input: {
               : `No trial-specific support was identified in the sources actually searched; this is not proof that the factor did not occur.`;
     return {
       category: categoryLabel(category), decision, evidenceStrength: strengthValue.replaceAll(" ", "_"),
-      supportingClaimIds: support.map((claim) => claim.id), contradictingClaimIds: contradictions.map((claim) => claim.id),
+      supportingClaimIds: substantiveSupport.map((claim) => claim.id), contradictingClaimIds: contradictions.map((claim) => claim.id),
       missingExpectedEvidence: expected.filter((item) => item.status === "not found").map((item) => item.test),
-      rationale, scope, citations: support.slice(0, 4).map((claim) => {
+      rationale, scope, citations: substantiveSupport.slice(0, 4).map((claim) => {
         const source = sources.find((item) => item.id === claim.sourceId);
         return { claimId: claim.id, claim: claim.text, source: source?.name ?? claim.sourceId, url: source?.url ?? "#", relation: claim.relation };
       }),
@@ -1285,4 +1287,5 @@ export const reasoningTestApi = {
   sourceCoverage,
   materialTimeline,
   judgeReport,
+  normalizeTrial,
 };
