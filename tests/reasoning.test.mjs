@@ -314,3 +314,9 @@ test("duplicate reports in one canonical provenance group do not increase eviden
   ], trial);
   assert.equal(duplicate[0].score, one[0].score);
 });
+
+test("preserves numeric enrollment from the registry", () => {
+  const normalized = reasoningTestApi.normalizeTrial({ protocolSection: { designModule: { enrollmentInfo: { count: 18, type: "ACTUAL" } } } }, "NCT00000001");
+  assert.equal(normalized.enrollment, 18);
+  assert.equal(normalized.enrollmentType, "ACTUAL");
+});
