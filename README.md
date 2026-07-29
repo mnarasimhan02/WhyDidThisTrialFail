@@ -96,6 +96,24 @@ The report now includes:
 
 Program hypotheses are generated only when program-relevant evidence clears the configured threshold. Otherwise the system returns: `Public evidence is insufficient to determine why the broader development program ended.`
 
+## Iteration 4: evidence-audit report
+
+The report now behaves like a compact evidence audit rather than a longer generated summary:
+
+- **Explanations Considered** assigns each relevant alternative one of `DOCUMENTED`, `SUPPORTED`, `POSSIBLE`, `NOT_SUPPORTED`, `REJECTED`, or `NOT_ASSESSABLE`, with claim IDs, supporting citations, contradictions, and missing expected evidence.
+- **Evidence Gaps** identifies the exact unanswered question, evidence that could resolve it, completed source searches, and likely impact on the conclusion.
+- **Evidence-Based Implications** requires supporting claim IDs, uses the narrowest defensible scope, and rejects unsupported counterfactual or class-wide language.
+- **Sources Checked** distinguishes searched, unavailable, not searched, and not applicable sources. It reports raw documents separately from independent canonical source groups so derivative coverage cannot inflate evidence strength.
+- **Material Trial History** shows substantive before/after registry changes and keeps administrative versions collapsed unless requested.
+
+The report judge suppresses the new audit sections if it detects a critical issue such as a documented reason without a primary-source claim, a rejected explanation without contradiction, an unsupported implication, or counterfactual wording.
+
+Current limitations:
+
+- Sponsor-site and conference searches are not yet generalized; curated trial-specific sponsor records are used when available and are labeled honestly in source coverage.
+- EU CTIS is linked when an EU identifier is present, but is not labeled searched because CTIS does not expose the anonymous retrieval route used by this MVP.
+- Material registry comparison focuses on structured fields available in the selected history snapshots; full protocol-document semantic differencing is deferred.
+
 ## Data sources
 
 The app uses only public sources.
