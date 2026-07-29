@@ -230,3 +230,87 @@ test("reports a continuing program when related trials remain active", () => {
   assert.equal(result.classification, "Continuing");
   assert.match(result.statement, /not treated as program failure/i);
 });
+
+test("routes an explicit intervention-availability stop without inferring manufacturing", () => {
+  assert.equal(reasoningTestApi.classifyPrimaryReason("MnSOD was no longer available during Phase II"), "product availability");
+  assert.notEqual(reasoningTestApi.classifyPrimaryReason("MnSOD was no longer available during Phase II"), "CMC/manufacturing");
+});
+
+test("documents a primary-source explanation and keeps unsupported alternatives bounded", () => {
+  const routedTrial = { ...trial, status: "TERMINATED", whyStopped: "Stopped after liver enzyme elevations changed the benefit-risk profile." };
+  const claims = [{
+    id: "claim-stop", text: routedTrial.whyStopped, kind: "documented cause", relation: "direct support",
+    category: "safety", sourceId: "ctg-current", sourceAuthority: 3, directness: 3,
+    trialSpecificity: 3, temporalRelevance: 2, entityIds: ["trial"],
+  }];
+  const sources = [{ id: "ctg-current", name: "ClinicalTrials.gov", url: "https://clinicaltrials.gov/study/NCT00000001", availability: "retrieved" }];
+  const assessments = reasoningTestApi.explanationAssessments({ trial: routedTrial, claims, candidates: [], sources });
+  const safety = assessments.find((item) => item.category === "SAFETY");
+  const efficacy = assessments.find((item) => item.category === "LACK_OF_EFFICACY");
+  assert.equal(safety.decision, "DOCUMENTED");
+  assert.deepEqual(safety.supportingClaimIds, ["claim-stop"]);
+  assert.equal(efficacy.decision, "NOT_SUPPORTED");
+  assert.match(efficacy.rationale, /not proof/i);
+});
+
+test("never rejects an explanation without contradictory evidence", () => {
+  const assessment = reasoningTestApi.explanationAssessments({
+    trial: { ...trial, status: "TERMINATED", whyStopped: "Stopped because the product was no longer available." },
+    claims: [], candidates: [], sources: [],
+  });
+  assert.equal(assessment.some((item) => item.decision === "REJECTED"), false);
+});
+
+test("bounded implications require supporting claims and reject counterfactual wording", () => {
+  assert.deepEqual(reasoningTestApi.evidenceImplications([{ decision: "NOT_SUPPORTED", supportingClaimIds: [] }]), []);
+  const implications = reasoningTestApi.evidenceImplications([{
+    category: "SAFETY", decision: "DOCUMENTED", supportingClaimIds: ["claim-1"], contradictingClaimIds: [], evidenceStrength: "DIRECTLY_DOCUMENTED",
+  }]);
+  assert.equal(implications[0].scope, "ASSET");
+  assert.doesNotMatch(implications[0].statement, /would have|would succeed|proves/i);
+  assert.match(implications[0].limitations[0], /does not establish/i);
+});
+
+test("source coverage does not claim CTIS was searched when only a route was mapped", () => {
+  const coverage = reasoningTestApi.sourceCoverage({
+    trial: { ...trial, lastUpdate: "2025-01-01", sponsor: "Example", indication: ["Example"], secondaryIds: [], assets: ["Examplemab"] },
+    history: { source: null, events: [], comparison: [] },
+    publicationSearch: { records: [], exactCompleted: true, contextualCompleted: true, europePmcAttempted: 0, europePmcCompleted: 0 },
+    verifiedEvidence: [],
+    sources: [
+      { id: "sec", availability: "not found", detail: "No company match" },
+      { id: "fda", availability: "not found", detail: "No label" },
+      { id: "ctis", availability: "not applicable", detail: "No EU ID" },
+    ],
+  });
+  const ctis = coverage.find((item) => item.sourceType === "EU_CTIS");
+  assert.equal(ctis.searchAttempted, false);
+  assert.equal(ctis.searchCompleted, false);
+});
+
+test("material timeline exposes before and after values and prohibits causal inference", () => {
+  const events = reasoningTestApi.materialTimeline({
+    events: [], source: {}, comparison: [{ date: "2020-01-01", field: "Overall status", beforeValue: "RECRUITING", afterValue: "TERMINATED", change: "Overall status changed" }],
+  }, { ...trial, startDate: "2019-01-01" }, [], "https://clinicaltrials.gov/study/NCT00000001");
+  const change = events.find((item) => item.title === "Overall status");
+  assert.equal(change.beforeValue, "RECRUITING");
+  assert.equal(change.afterValue, "TERMINATED");
+  assert.equal(change.importance, "MATERIAL");
+  assert.equal(change.causalInterpretationProhibited, true);
+});
+
+test("duplicate reports in one canonical provenance group do not increase evidence score", () => {
+  const baseClaim = {
+    text: "The sponsor reported a trial-specific safety concern and serious adverse event.", kind: "observation", relation: "direct support",
+    category: "safety", sourceAuthority: 2, directness: 2, trialSpecificity: 3, temporalRelevance: 2, entityIds: ["trial", "asset"],
+  };
+  const one = reasoningTestApi.evaluateCandidates([{ ...baseClaim, id: "claim-1", sourceId: "article-1" }], [{ id: "article-1", sourceType: "publication", provenanceKey: "same-announcement" }], trial);
+  const duplicate = reasoningTestApi.evaluateCandidates([
+    { ...baseClaim, id: "claim-1", sourceId: "article-1" },
+    { ...baseClaim, id: "claim-2", sourceId: "article-2" },
+  ], [
+    { id: "article-1", sourceType: "publication", provenanceKey: "same-announcement" },
+    { id: "article-2", sourceType: "publication", provenanceKey: "same-announcement" },
+  ], trial);
+  assert.equal(duplicate[0].score, one[0].score);
+});
