@@ -965,14 +965,35 @@ export async function GET(request: Request) {
       evidenceStrength: stopReason.evidenceStrength,
     }];
     const knownFacts = [
-      { fact: `ClinicalTrials.gov reports the current trial status as ${trial.status}.`, sourceName: "ClinicalTrials.gov", url: registryUrl },
-      ...(trial.whyStopped ? [{ fact: `The registry's Why Stopped field states: “${trial.whyStopped}”`, sourceName: "ClinicalTrials.gov", url: registryUrl }] : []),
-      { fact: `The registry reports a ${trial.startDateType.toLowerCase()} start date of ${trial.startDate}.`, sourceName: "ClinicalTrials.gov", url: registryUrl },
-      { fact: `The registry reports a ${trial.completionDateType.toLowerCase()} completion date of ${trial.completionDate}.`, sourceName: "ClinicalTrials.gov", url: registryUrl },
+      { fact: `Trial status: ${trial.status}.`, sourceName: "ClinicalTrials.gov current record", url: registryUrl },
+      ...(trial.whyStopped ? [{ fact: `Reported stopping reason: “${trial.whyStopped}”`, sourceName: "ClinicalTrials.gov Why Stopped field", url: registryUrl }] : []),
+      ...(trial.enrollment != null ? [{ fact: `Study enrollment: ${trial.enrollment} participants${trial.enrollmentType !== "UNKNOWN" ? ` (${trial.enrollmentType.toLowerCase()})` : ""}.`, sourceName: "ClinicalTrials.gov current record", url: registryUrl }] : []),
+      ...(history.events.length ? [{ fact: `Registry record updated across ${history.events.length} submitted versions.`, sourceName: "ClinicalTrials.gov record history", url: registryUrl }] : []),
+      { fact: `Reported start date: ${trial.startDate}${trial.startDateType !== "UNKNOWN" ? ` (${trial.startDateType.toLowerCase()})` : ""}.`, sourceName: "ClinicalTrials.gov current record", url: registryUrl },
+      { fact: `Reported completion date: ${trial.completionDate}${trial.completionDateType !== "UNKNOWN" ? ` (${trial.completionDateType.toLowerCase()})` : ""}.`, sourceName: "ClinicalTrials.gov current record", url: registryUrl },
     ].filter((item) => !item.fact.includes("Not reported"));
+    const establishedProgramCategories = new Set(
+      candidates
+        .filter((candidate) => ["DIRECTLY DOCUMENTED", "STRONG PUBLIC EVIDENCE", "MODERATE PUBLIC EVIDENCE"].includes(candidate.evidenceStrength))
+        .map((candidate) => candidate.category),
+    );
+    const categoryUnknowns: Array<{ category: FailureCategory; label: string }> = [
+      { category: "efficacy", label: "Whether efficacy contributed to the program outcome." },
+      { category: "safety", label: "Whether safety contributed to the program outcome." },
+      { category: "CMC/manufacturing", label: "Whether manufacturing or CMC constraints contributed." },
+      { category: "funding", label: "Whether funding constraints contributed." },
+      { category: "portfolio prioritization", label: "Whether strategic portfolio decisions contributed." },
+    ];
     const unknowns = [
       ...(!trial.whyStopped && /terminated|withdrawn|suspended/i.test(trial.status) ? [{ label: "A trial stopping reason was not found in the current registry record.", searchedSources: ["ClinicalTrials.gov current record", "ClinicalTrials.gov history"] }] : []),
-      ...(program.classification === "Insufficient evidence" ? [{ label: "Why the broader asset or development program ended was not established by the retrieved public evidence.", searchedSources: ["PubMed", "SEC EDGAR", "FDA", "EU CTIS", "related ClinicalTrials.gov records"] }] : []),
+      ...(program.classification === "Insufficient evidence"
+        ? categoryUnknowns
+          .filter((item) => !establishedProgramCategories.has(item.category))
+          .map((item) => ({
+            label: item.label,
+            searchedSources: ["PubMed", "SEC EDGAR", "FDA", "EU CTIS", "related ClinicalTrials.gov records"],
+          }))
+        : []),
     ];
 
     return NextResponse.json({
