@@ -1,0 +1,39 @@
+name: Golden dataset after deploy
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Deployed app URL
+        required: true
+        default: https://www.whydidthistrialfail.ai
+
+permissions:
+  contents: read
+
+jobs:
+  run-golden-dataset:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      EVAL_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+      EVAL_ADMIN_TOKEN: ${{ secrets.EVAL_ADMIN_TOKEN }}
+      EVAL_OUTPUT_PATH: artifacts/eval-results.json
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run 100-case clinical reasoning suite
+        run: node scripts/run-deployment-evals.mjs
+      - name: Upload complete evaluation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clinical-reasoning-evals-${{ github.run_id }}
+          path: artifacts/eval-results.json
+          if-no-files-found: warn
