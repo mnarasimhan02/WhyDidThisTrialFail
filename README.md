@@ -182,6 +182,38 @@ npm run lint
 npm run build
 ```
 
+## Hidden golden-dataset dashboard
+
+The app includes a non-linked validation workspace at `/admin/evals`. It runs the same production investigation pipeline against the versioned 100-study fixture in `data/evals.json`.
+
+For every trial, the dashboard stores and compares:
+
+- expected live trial state
+- expected failure-category family
+- whether hypotheses should be generated
+- whether the report should return `insufficient public evidence`
+- minimum evidence strength
+- expected primary source families
+- calculated Pass/Fail status for each check and the overall case
+
+Results are stored in the current browser so a long run can be resumed and exported as JSON. Gold rows are regression anchors. Silver rows are automatically evaluated but remain marked for live clinical review.
+
+The supplied workbook has a source-data discrepancy: its Summary tab reports 48 Gold and 52 Silver cases, while the row-level labels contain 59 Gold and 41 Silver cases. The fixture and dashboard use the row-level labels and show a warning.
+
+### Protecting the runner
+
+Set `EVAL_ADMIN_TOKEN` in Vercel. Enter that same token in the dashboard when starting a run. The token is kept only in browser session storage.
+
+### Automatic post-deployment regression
+
+The GitHub Actions workflow `.github/workflows/evals-after-deploy.yml` runs after a successful Vercel Production deployment and uploads `eval-results.json` as a workflow artifact. Add a GitHub Actions repository secret named `EVAL_ADMIN_TOKEN` with the same value configured in Vercel.
+
+The workflow can also be started manually with a deployment URL. It fails when any applicable evaluation check fails, while preserving the complete report artifact for review.
+
+### Updating the fixture
+
+The committed JSON fixture is generated from `WhyDidThisTrialFail_Eval_Dataset_100.xlsx` by `scripts/import-eval-dataset.mjs`. The import preserves workbook fields and deterministically derives accepted category families, insufficient-evidence behavior, and expected source families.
+
 ## Hosting
 
 This app is designed for Vercel deployment.
