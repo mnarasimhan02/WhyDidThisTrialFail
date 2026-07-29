@@ -233,6 +233,7 @@ test("reports a continuing program when related trials remain active", () => {
 
 test("routes an explicit intervention-availability stop without inferring manufacturing", () => {
   assert.equal(reasoningTestApi.classifyPrimaryReason("MnSOD was no longer available during Phase II"), "product availability");
+  assert.equal(reasoningTestApi.classifyPrimaryReason("MnSOD longer available during Phase II"), "product availability");
   assert.notEqual(reasoningTestApi.classifyPrimaryReason("MnSOD was no longer available during Phase II"), "CMC/manufacturing");
 });
 
