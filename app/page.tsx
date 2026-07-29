@@ -35,7 +35,18 @@ type InvestigationResponse = {
     relatedTrialIds: string[];
   };
   trialOutcome?: { classification: string; statement: string };
-  programOutcome?: { classification: string; statement: string };
+  trialStoppingReason?: {
+    status: string;
+    reason: string;
+    documented: boolean;
+    evidenceStrength: "DIRECTLY DOCUMENTED" | "NOT DOCUMENTED";
+    source: { name: string; url: string; detail: string };
+  };
+  programOutcome?: { classification: string; statement: string; evidenceStrength?: InvestigationResponse["verdict"] };
+  publicEvidenceSummary?: string;
+  knownFacts?: Array<{ fact: string; sourceName: string; url: string }>;
+  unknowns?: Array<{ label: string; searchedSources: string[] }>;
+  trialStoppingEvidence?: Array<{ claim: string; sourceName: string; url: string; evidenceStrength: string }>;
   bottomLine: string;
   verdict: "DIRECTLY DOCUMENTED" | "STRONG PUBLIC EVIDENCE" | "MODERATE PUBLIC EVIDENCE" | "LIMITED PUBLIC EVIDENCE" | "SPECULATIVE" | "INSUFFICIENT EVIDENCE";
   hypotheses: Array<{
@@ -73,7 +84,9 @@ type InvestigationResponse = {
     contradictions: number;
     missingExpectedEvidence: number;
     sourceFamilies: number;
+    decision?: "Accepted" | "Rejected" | "Insufficient";
   }>;
+  programEvidenceMatrix?: InvestigationResponse["evidenceMatrix"];
   relatedTrials: Array<{
     nctId: string;
     title: string;
@@ -540,18 +553,15 @@ export default function Home() {
 
             <section className="folder grain result-panel-shell">
               <div className="panel-headline">
-                <div className="mono panel-kicker">WHY IT MOST LIKELY FAILED</div>
+                <div className="mono panel-kicker">WHAT THE PUBLIC EVIDENCE SHOWS</div>
                 <div className="panel-actions">
-                  <span className={`badge badge-${strengthTone(data.verdict)}`}>
-                    {strengthLabel(data.verdict)}
-                  </span>
                   <InfoTip title="Bottom-line finding">
-                    The app first verifies that a negative trial event occurred, then selects only explanations supported by trial-specific evidence. The label describes evidence strength, not a probability. If no explanation clears the threshold, the report says insufficient evidence.
+                    This summary contains only retrieved facts and clearly labeled program findings. A documented reason the study stopped is never treated as proof of why the broader development program ended.
                   </InfoTip>
                 </div>
               </div>
               <p className="result-answer">
-                {data.bottomLine}
+                {data.publicEvidenceSummary ?? data.bottomLine}
               </p>
               <div className="result-footnote mono">
                 Built from {data.evidenceModel.directFacts} direct observations and {data.evidenceModel.derivedFacts} temporal comparisons. Missing evidence is reported as not found, never as proof of absence.
@@ -560,24 +570,42 @@ export default function Home() {
 
             <section className="folder grain result-panel-shell outcome-section">
               <div className="section-title-row">
-                <div className="mono panel-kicker">TRIAL ≠ PROGRAM</div>
+                <div className="mono panel-kicker">TRIAL STOPPING REASON ≠ PROGRAM OUTCOME</div>
                 <InfoTip title="Trial versus program">
                   Trial outcome describes this NCT record. Program outcome looks across the asset, sponsor, indication, related trials, and sponsor disclosures. A stopped trial does not automatically mean the entire drug program failed.
                 </InfoTip>
               </div>
               <div className="outcome-grid">
                 <article>
-                  <div className="mono outcome-label">TRIAL OUTCOME</div>
-                  <strong>{data.trialOutcome?.classification ?? data.overview.status}</strong>
-                  <p>{data.trialOutcome?.statement ?? "The registry record describes the individual trial outcome."}</p>
+                  <div className="outcome-card-head">
+                    <div className="mono outcome-label">TRIAL STOPPING REASON</div>
+                    <span className={`badge badge-${data.trialStoppingReason?.documented ? "strong" : "low"}`}>Trial / {data.trialStoppingReason?.documented ? "Directly documented" : "Not documented"}</span>
+                  </div>
+                  <strong>{data.trialStoppingReason?.status ?? data.overview.status}</strong>
+                  <p>{data.trialStoppingReason?.reason ?? data.trialOutcome?.statement ?? "The registry record does not document a stopping reason."}</p>
+                  {data.trialStoppingReason ? <a className="source-link" href={data.trialStoppingReason.source.url} target="_blank" rel="noreferrer">Source: {data.trialStoppingReason.source.name}</a> : null}
                 </article>
                 <article>
-                  <div className="mono outcome-label">ASSET / PROGRAM OUTCOME</div>
-                  <strong>{data.programOutcome?.classification ?? "not established"}</strong>
+                  <div className="outcome-card-head">
+                    <div className="mono outcome-label">PROGRAM OUTCOME</div>
+                    <span className={`badge badge-${strengthTone(data.programOutcome?.evidenceStrength ?? data.verdict)}`}>Program / {data.programOutcome?.classification ?? "Unknown"}</span>
+                  </div>
+                  <strong>{data.programOutcome?.classification ?? "Unknown"}</strong>
                   <p>{data.programOutcome?.statement ?? "The broader program outcome was not established."}</p>
                 </article>
               </div>
             </section>
+
+            <div className="facts-grid">
+              <section className="folder grain result-panel-shell">
+                <div className="section-title-row"><div className="mono panel-kicker">KNOWN FACTS</div><InfoTip title="Known facts">Deterministic observations copied from retrieved public records. Every item links to its source; no causal interpretation is added.</InfoTip></div>
+                <div className="fact-list">{data.knownFacts?.map((item, index) => <a href={item.url} target="_blank" rel="noreferrer" key={index}><span>•</span><span>{item.fact}<small>{item.sourceName}</small></span></a>)}</div>
+              </section>
+              <section className="folder grain result-panel-shell">
+                <div className="section-title-row"><div className="mono panel-kicker">WHAT REMAINS UNKNOWN</div><InfoTip title="What remains unknown">“Not found” means the retrieved public sources did not establish the answer. It does not mean the event or evidence does not exist.</InfoTip></div>
+                {data.unknowns?.length ? <div className="unknown-list">{data.unknowns.map((item, index) => <div key={index}><p>{item.label}</p><small>Searched: {item.searchedSources.join(", ")}</small></div>)}</div> : <p className="muted-copy">No material unknowns were identified in the displayed findings.</p>}
+              </section>
+            </div>
 
             <section className="folder grain result-panel-shell">
               <div className="panel-headline evidence-heading">
@@ -603,23 +631,30 @@ export default function Home() {
 
             <section className="folder grain result-panel-shell">
               <div className="section-title-row">
-                <div className="mono panel-kicker">EVIDENCE MATRIX</div>
-                <InfoTip title="Evidence matrix">
-                  Each row is a possible failure category. “Direct” is explicit trial-specific support; “Indirect” is relevant association; “Against” is contradictory evidence; and “Expected not found” counts category-specific evidence the system looked for but did not retrieve. Evidence strength also considers source authority, trial specificity, independent corroboration, and timing. The label is not a probability.
+                <div className="mono panel-kicker">MATRIX A · TRIAL STOPPING EVIDENCE</div>
+                <InfoTip title="Trial stopping evidence">
+                  This matrix is deterministic. It shows the registry status and any explicit Why Stopped statement without adding an inferred cause.
                 </InfoTip>
               </div>
-              <div className="section-subcopy">Only trial-specific candidates are shown. Repeated coverage of one announcement counts once.</div>
-              {data.evidenceMatrix?.length ? (
+              <div className="compact-evidence-list">{data.trialStoppingEvidence?.map((row, index) => <a href={row.url} target="_blank" rel="noreferrer" key={index}><strong>{row.evidenceStrength}</strong><span>{row.claim}</span><small>{row.sourceName}</small></a>)}</div>
+            </section>
+
+            <section className="folder grain result-panel-shell">
+              <div className="section-title-row">
+                <div className="mono panel-kicker">MATRIX B · PROGRAM FAILURE EVIDENCE</div>
+                <InfoTip title="Program failure evidence">Program-level explanations are scored separately using direct support, contradiction, missing expected evidence, source authority, trial specificity, independent provenance, and temporal relevance. The result is an evidence label, not a probability.</InfoTip>
+              </div>
+              <div className="section-subcopy">Repeated coverage of one underlying announcement counts once. Unsupported candidates remain insufficient or are rejected.</div>
+              {data.programEvidenceMatrix?.length ? (
                 <div className="matrix-scroll">
                   <table className="evidence-matrix">
-                    <thead><tr><th>Candidate</th><th>Claim level</th><th>Evidence</th><th>Direct</th><th>Indirect</th><th>Against</th><th>Expected not found</th></tr></thead>
+                    <thead><tr><th>Category</th><th>Support</th><th>Against</th><th>Expected not found</th><th>Strength</th><th>Decision</th></tr></thead>
                     <tbody>
-                      {data.evidenceMatrix.map((row) => (
+                      {data.programEvidenceMatrix.map((row) => (
                         <tr key={row.category}>
                           <td className="matrix-category">{row.category}</td>
-                          <td>{row.claimKind}</td>
-                          <td><span className={`badge badge-${strengthTone(row.evidenceStrength)}`}>{strengthLabel(row.evidenceStrength)}</span></td>
-                          <td>{row.directSupport}</td><td>{row.indirectSupport}</td><td>{row.contradictions}</td><td>{row.missingExpectedEvidence}</td>
+                          <td>{row.directSupport} direct · {row.indirectSupport} indirect</td><td>{row.contradictions}</td><td>{row.missingExpectedEvidence}</td>
+                          <td><span className={`badge badge-${strengthTone(row.evidenceStrength)}`}>{strengthLabel(row.evidenceStrength)}</span></td><td>{row.decision ?? "Insufficient"}</td>
                         </tr>
                       ))}
                     </tbody>
