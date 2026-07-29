@@ -544,7 +544,7 @@ const CATEGORY_TERMS: Record<FailureCategory, string[]> = {
   "benefit-risk": ["potential benefit-risk profile", "unfavorable benefit-risk", "unfavorable benefit risk", "data monitoring committee", "dosing stopped"],
   enrollment: ["unable to recruit", "poor recruitment", "slow enrollment", "low accrual", "enrollment shortfall", "recruitment target"],
   operational: ["operational", "site closure", "logistics", "data quality", "protocol deviation"],
-  "product availability": ["no longer available", "product unavailable", "drug unavailable", "intervention unavailable", "supply unavailable"],
+  "product availability": ["no longer available", "longer available", "product unavailable", "drug unavailable", "intervention unavailable", "supply unavailable"],
   "protocol design": ["protocol design", "endpoint changed", "eligibility amended", "design limitation"],
   regulatory: ["clinical hold", "complete response letter", "inspection finding", "warning letter", "regulatory action"],
   "CMC/manufacturing": ["manufacturing", "batch", "stability", "impurity", "quality control", "cmc"],
@@ -586,7 +586,7 @@ const EXPECTED_EVIDENCE: Record<FailureCategory, Array<{ test: string; terms: st
     { test: "registry amendment consistent with the issue", terms: ["protocol deviation", "site terminated", "study logistics"] },
   ],
   "product availability": [
-    { test: "explicit intervention-availability statement", terms: ["no longer available", "product unavailable", "drug unavailable", "intervention unavailable"] },
+    { test: "explicit intervention-availability statement", terms: ["no longer available", "longer available", "product unavailable", "drug unavailable", "intervention unavailable"] },
     { test: "source explaining why supply ended", terms: ["manufacturing", "supply", "commercial", "funding", "strategic"] },
   ],
   "protocol design": [
