@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { conciseFinding, displayOutcome, evidenceStatus, primaryCategory, scorecard } from "../lib/report-presentation";
 
 type InvestigationResponse = {
   nctId: string;
@@ -118,6 +119,10 @@ type InvestigationResponse = {
     title: string;
     relevance: string;
     status: string;
+    phase?: string;
+    indications?: string[];
+    documentedOutcome?: string;
+    mappingConfidence?: "CONFIRMED" | "SUPPORTED";
     url: string;
   }>;
   publications: Array<{
@@ -319,8 +324,47 @@ function strengthLabel(level: InvestigationResponse["verdict"]) {
   return "Insufficient evidence";
 }
 
-function sourceCount(data: InvestigationResponse) {
-  return 1 + data.relatedTrials.length + data.publications.length;
+function programOutcomeLabel(value?: string) {
+  const normalized = (value ?? "").toUpperCase();
+  if (/CONTINU/.test(normalized)) return "CONTINUED";
+  if (/ADVANC/.test(normalized)) return "ADVANCED";
+  if (/REDESIGN/.test(normalized)) return "REDESIGNED";
+  if (/DISCONTINU|ESTABLISHED/.test(normalized)) return /INSUFFICIENT|NOT ESTABLISHED/.test(normalized) ? "NOT_ESTABLISHED" : "DISCONTINUED";
+  if (/DEPRIORIT/.test(normalized)) return "DEPRIORITIZED";
+  return "NOT_ESTABLISHED";
+}
+
+function ScoreMeter({ label, value, explanation }: { label: string; value: string; explanation: string }) {
+  const levels = ["UNKNOWN", "LIMITED", "MODERATE", "STRONG", "ESTABLISHED"];
+  const active = Math.max(0, levels.indexOf(value));
+  return (
+    <details className="score-item">
+      <summary>
+        <span>{label}</span>
+        <span className="score-value">{value}</span>
+        <span className="score-segments" aria-label={`${label}: ${value}`}>
+          {levels.map((level, index) => <i className={index <= active ? "active" : ""} key={level} />)}
+        </span>
+      </summary>
+      <p>{explanation}</p>
+    </details>
+  );
+}
+
+function ExpertSection({ id, title, help, warning, children }: { id: string; title: string; help: React.ReactNode; warning?: string; children: React.ReactNode }) {
+  return (
+    <details className="folder grain result-panel-shell expert-section" id={id}>
+      <summary>
+        <span className="mono panel-kicker">{title}</span>
+        {warning ? <span className="critical-warning">{warning}</span> : null}
+        <span className="disclosure-label">Open details</span>
+      </summary>
+      <div className="expert-content">
+        <div className="section-title-row"><span /><InfoTip title={title}>{help}</InfoTip></div>
+        {children}
+      </div>
+    </details>
+  );
 }
 
 export default function Home() {
@@ -331,10 +375,9 @@ export default function Home() {
   const [shake, setShake] = useState(false);
   const [data, setData] = useState<InvestigationResponse | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [showOverview, setShowOverview] = useState(true);
-  const [showSources, setShowSources] = useState(true);
   const [showMethod, setShowMethod] = useState(true);
   const [showAllVersions, setShowAllVersions] = useState(false);
+  const [showAllEvidence, setShowAllEvidence] = useState(false);
   const resultRef = useRef<HTMLDivElement | null>(null);
 
   const suggestions = useMemo(() => {
@@ -347,6 +390,34 @@ export default function Home() {
       );
     });
   }, [searchText]);
+
+  const presentation = useMemo(() => {
+    if (!data) return null;
+    const explanations = data.explanationsConsidered ?? [];
+    const confirmedRelated = data.relatedTrials.filter((trial) => trial.relevance === "Same asset");
+    const scores = scorecard({
+      documented: Boolean(data.trialStoppingReason?.documented), explanations,
+      programEvidenceStrength: data.programOutcome?.evidenceStrength,
+      coverage: data.sourceCoverage ?? [],
+      independentSources: data.provenanceSummary?.independentSourceGroupsUsed ?? 0,
+      confirmedRelatedTrials: confirmedRelated.length,
+      highImpactGaps: (data.evidenceGaps ?? []).filter((gap) => /high|material|critical/i.test(gap.impact)).length,
+    });
+    const stoppingReason = data.trialStoppingReason?.reason;
+    const primaryFinding = conciseFinding(data.trialStoppingReason?.documented && stoppingReason
+      ? stoppingReason
+      : data.trialOutcome?.statement ?? data.publicEvidenceSummary ?? data.bottomLine);
+    return {
+      trialResult: displayOutcome(data.overview.status, data.trialOutcome?.classification),
+      primaryFinding,
+      category: primaryCategory(explanations, Boolean(data.trialStoppingReason?.documented)),
+      evidence: evidenceStatus(Boolean(data.trialStoppingReason?.documented), explanations),
+      program: programOutcomeLabel(data.programOutcome?.classification),
+      scores, confirmedRelated,
+      importantUnknowns: (data.unknowns ?? []).slice(0, 2),
+      topEvidence: (data.knownFacts ?? []).slice(0, 5),
+    };
+  }, [data]);
 
   function resolveTrialId(value: string) {
     const query = value.trim();
@@ -400,8 +471,6 @@ export default function Home() {
           {},
         ),
       );
-      setShowOverview(true);
-      setShowSources(true);
       setShowMethod(true);
       setStatus("done");
       window.setTimeout(() => {
@@ -442,9 +511,9 @@ export default function Home() {
               <span className="hero-title-expanded">Why Did This Trial Fail?</span>
             </h1>
             <p className="lede">
-              Paste one NCT ID and get a source-backed investigation of the public
-              record: the most plausible failure hypotheses, and the evidence
-              behind each one.
+              Enter one NCT ID to see what happened, what the public evidence supports,
+              what remains unknown, and what the result may mean for the broader
+              development program.
             </p>
 
             <div className={`search-shell ${shake ? "shake" : ""}`}>
@@ -540,20 +609,20 @@ export default function Home() {
               <div className="feature-grid">
                 {[
                   {
-                    title: "Bottom line",
-                    body: "A tight, one-paragraph read on the most likely reason the trial stopped or missed its endpoint.",
+                    title: "Answer",
+                    body: "A concise explanation of the documented trial outcome and its evidence strength.",
                   },
                   {
-                    title: "Hypotheses",
-                    body: "Every plausible explanation, ranked by evidence strength, each with the evidence for it and the strongest case against it.",
+                    title: "Program Context",
+                    body: "See how the study fits into the broader asset-development history.",
                   },
                   {
-                    title: "Evidence",
-                    body: "Direct links back to ClinicalTrials.gov records, PubMed abstracts, and other public registry context.",
+                    title: "Evidence Audit",
+                    body: "Review supporting, contradicting, and missing evidence with source-level citations.",
                   },
                   {
                     title: "Guardrails",
-                    body: "Fact, inference, and hypothesis are labeled separately, so you always know how much weight to put on a line.",
+                    body: "Facts, interpretations, and unresolved questions remain clearly separated.",
                   },
                 ].map((item) => (
                   <article className="feature-card" key={item.title}>
@@ -581,62 +650,81 @@ export default function Home() {
               </h1>
             </div>
 
-            <section className="folder grain result-panel-shell">
-              <div className="panel-headline">
-                <div className="mono panel-kicker">WHAT THE PUBLIC EVIDENCE SHOWS</div>
-                <div className="panel-actions">
-                  <InfoTip title="Bottom-line finding">
-                    This summary contains only retrieved facts and clearly labeled program findings. A documented reason the study stopped is never treated as proof of why the broader development program ended.
-                  </InfoTip>
+            <nav className="report-nav mono" aria-label="Report sections">
+              <a href="#summary">Summary</a><a href="#meaning">Meaning</a><a href="#evidence">Evidence</a><a href="#history">History</a><a href="#sources">Sources</a>
+            </nav>
+
+            {presentation ? <>
+              <section className="folder grain result-panel-shell executive-summary" id="summary">
+                <div className="section-title-row"><div className="mono panel-kicker">EXECUTIVE INVESTIGATION SUMMARY</div><InfoTip title="Executive summary">Trial and program outcomes are assessed independently. The primary finding uses the strongest trial-specific evidence and never turns timing or missing evidence into causality.</InfoTip></div>
+                <div className="executive-grid">
+                  <div className="primary-finding">
+                    <span className="summary-label">Primary finding</span>
+                    <p>{presentation.primaryFinding}</p>
+                    {data.trialStoppingReason?.documented ? <details className="exact-source"><summary>View exact source and registry wording</summary><blockquote>{data.trialStoppingReason.reason}</blockquote><a href={data.trialStoppingReason.source.url} target="_blank" rel="noreferrer">{data.trialStoppingReason.source.name}</a></details> : null}
+                  </div>
+                  <div className="summary-stat"><span>Trial result</span><strong>{presentation.trialResult}</strong></div>
+                  <div className="summary-stat"><span>Stopping category</span><strong>{presentation.category}</strong></div>
+                  <div className="summary-stat"><span>Evidence status</span><strong>{presentation.evidence}</strong></div>
+                  <div className="summary-stat program-stat"><span>Program outcome</span><strong>{presentation.program}</strong><small>{data.programOutcome?.statement}</small></div>
+                  <div className="summary-unknown"><span>Most important unknown</span>{presentation.importantUnknowns.length ? presentation.importantUnknowns.map((item) => <p key={item.label}>{item.label}</p>) : <p>No material trial-level uncertainty was identified.</p>}</div>
                 </div>
-              </div>
-              <p className="result-answer">
-                {data.publicEvidenceSummary ?? data.bottomLine}
-              </p>
-              <div className="result-footnote mono">
-                Built from {data.evidenceModel.directFacts} direct observations and {data.evidenceModel.derivedFacts} temporal comparisons. Missing evidence is reported as not found, never as proof of absence.
-              </div>
+                <div className="evidence-base mono">{data.evidenceModel.directFacts} direct observations · {data.provenanceSummary?.independentSourceGroupsUsed ?? 0} independent source groups · {data.timeline.length} material events · {presentation.confirmedRelated.length} confirmed related trials</div>
+              </section>
+
+              <section className="folder grain result-panel-shell scorecard-section">
+                <div className="section-title-row"><div className="mono panel-kicker">INVESTIGATION SCORECARD</div><InfoTip title="Investigation scorecard">Each dimension is scored independently from deterministic retrieval and evidence inputs. These labels are evidence states, not probabilities.</InfoTip></div>
+                <div className="score-grid">
+                  <ScoreMeter label="Trial-level explanation" value={presentation.scores.trial} explanation="Based on explicit trial-level statements, supporting sources, contradictions, and trial specificity. A primary-source stopping reason establishes this dimension." />
+                  <ScoreMeter label="Program-level explanation" value={presentation.scores.program} explanation="Uses program-specific evidence only and never inherits the trial-level result. Sponsor or regulator evidence would strengthen it." />
+                  <ScoreMeter label="Evidence coverage" value={presentation.scores.coverage} explanation="Based on applicable searches completed, relevant records used, and unresolved high-impact evidence gaps." />
+                  <ScoreMeter label="Source independence" value={presentation.scores.independence} explanation="Counts canonical source groups rather than multiple articles repeating one announcement." />
+                  <ScoreMeter label="Cross-trial context" value={presentation.scores.context} explanation="Based only on confirmed same-asset related trials. Approximate sponsor or indication matches do not increase this score." />
+                </div>
+              </section>
+
+              <section className="folder grain result-panel-shell meaning-section" id="meaning">
+                <div className="section-title-row"><div className="mono panel-kicker">WHAT WE KNOW</div><InfoTip title="Practical interpretation">These statements remain within the trial, asset, and population scope supported by cited evidence. They are not retrospective protocol recommendations or causal overclaims.</InfoTip></div>
+                <div className="meaning-grid">
+                  <div><h3>Practical interpretation</h3><ul><li>{data.trialStoppingReason?.documented ? `The trial-level stopping reason is directly documented as ${presentation.category.toLowerCase().replaceAll("_", " ")}.` : "The retrieved public record does not directly document a trial-level stopping reason."}</li><li>{data.programOutcome?.statement ?? "The broader program outcome is not established."}</li></ul></div>
+                  <div><h3>Evidence-based implications</h3>{data.evidenceBasedImplications?.length ? data.evidenceBasedImplications.slice(0, 3).map((item) => <article className="meaning-implication" key={item.id}><strong>{item.title}</strong><p>{item.statement}</p><small>{item.scope} · {item.evidenceStrength.replaceAll("_", " ")} · Supported by {item.supportingClaimIds.join(", ")}</small><em>{item.limitations.join(" ")}</em></article>) : <p>The public evidence establishes the trial outcome but does not support a responsible development implication beyond the documented stopping reason.</p>}</div>
+                  <div><h3>What evidence would change the conclusion?</h3>{data.evidenceGaps?.length ? <ul>{data.evidenceGaps.slice(0, 3).map((gap) => <li key={gap.id}><a href="#evidence-gaps">{gap.question}</a></li>)}</ul> : <p>No specific high-impact evidence requirement was identified.</p>}</div>
+                </div>
+              </section>
+
+              <section className="folder grain result-panel-shell top-evidence" id="evidence">
+                <div className="section-title-row"><div className="mono panel-kicker">WHAT PUBLIC EVIDENCE SUPPORTS</div><InfoTip title="Top evidence">The first view is limited to decisive, directly sourced observations. Use Show all evidence for the complete fact ledger.</InfoTip></div>
+                <div className="fact-list">{(showAllEvidence ? data.knownFacts ?? [] : presentation.topEvidence).map((item, index) => <a href={item.url} target="_blank" rel="noreferrer" key={`${item.fact}-${index}`}><span className="evidence-number">{index + 1}</span><span>{item.fact}<small>{item.sourceName}</small></span></a>)}</div>
+                {(data.knownFacts?.length ?? 0) > presentation.topEvidence.length ? <button className="text-control mono" onClick={() => setShowAllEvidence((value) => !value)}>{showAllEvidence ? "Show top evidence" : "Show all evidence"}</button> : null}
+              </section>
+            </> : null}
+
+            <section className="folder grain result-panel-shell unknown-section">
+              <div className="section-title-row"><div className="mono panel-kicker">WHAT REMAINS UNKNOWN</div><InfoTip title="What remains unknown">“Not found” means the retrieved public sources did not establish the answer. It does not mean the event or evidence does not exist.</InfoTip></div>
+              {data.unknowns?.length ? <div className="unknown-list">{data.unknowns.map((item, index) => <div className="unknown-row" key={index}><span className="ledger-icon ledger-unknown" aria-hidden="true">?</span><div><p>{item.label}</p><small>Not established in: {item.searchedSources.join(", ")}</small></div></div>)}</div> : <p className="muted-copy">No material unknowns were identified in the displayed findings.</p>}
             </section>
 
-            <section className="folder grain result-panel-shell outcome-section">
-              <div className="section-title-row">
-                <div className="mono panel-kicker">TRIAL STOPPING REASON ≠ PROGRAM OUTCOME</div>
-                <InfoTip title="Trial versus program">
-                  Trial outcome describes this NCT record. Program outcome looks across the asset, sponsor, indication, related trials, and sponsor disclosures. A stopped trial does not automatically mean the entire drug program failed.
-                </InfoTip>
-              </div>
-              <div className="outcome-grid">
-                <article>
-                  <div className="outcome-card-head">
-                    <div className="mono outcome-label">TRIAL STOPPING REASON</div>
-                    <span className={`badge badge-${data.trialStoppingReason?.documented ? "strong" : "low"}`}>Trial / {data.trialStoppingReason?.documented ? "Directly documented" : "Not documented"}</span>
-                  </div>
-                  <strong>{data.trialStoppingReason?.status ?? data.overview.status}</strong>
-                  <p>{data.trialStoppingReason?.reason ?? data.trialOutcome?.statement ?? "The registry record does not document a stopping reason."}</p>
-                  {data.trialStoppingReason ? <a className="source-link" href={data.trialStoppingReason.source.url} target="_blank" rel="noreferrer">Source: {data.trialStoppingReason.source.name}</a> : null}
-                </article>
-                <article>
-                  <div className="outcome-card-head">
-                    <div className="mono outcome-label">PROGRAM OUTCOME</div>
-                    <span className={`badge badge-${strengthTone(data.programOutcome?.evidenceStrength ?? data.verdict)}`}>Program / {data.programOutcome?.classification ?? "Unknown"}</span>
-                  </div>
-                  <strong>{data.programOutcome?.classification ?? "Unknown"}</strong>
-                  <p>{data.programOutcome?.statement ?? "The broader program outcome was not established."}</p>
-                </article>
-              </div>
-            </section>
+            {presentation?.confirmedRelated.length ? (
+            <ExpertSection id="program-context" title="PROGRAM CONTEXT" help="Only exact same-asset registry mappings are included. Sponsor- or indication-only similarities are excluded from this summary.">
+                <div className="program-context-grid">
+                  <div><span>Asset</span><strong>{data.programMap?.assetNames[0] ?? data.overview.target}</strong></div>
+                  <div><span>Sponsor</span><strong>{data.programMap?.sponsor ?? data.overview.sponsor}</strong></div>
+                  <div><span>Confirmed related trials</span><strong>{presentation.confirmedRelated.length}</strong></div>
+                  <div><span>Development phase</span><strong>{data.overview.phase || "Not reported"}</strong></div>
+                  <div><span>Indications represented</span><strong>{data.programMap?.indication.join(", ") || "Not reported"}</strong></div>
+                  <div><span>Mapping confidence</span><strong>CONFIRMED</strong></div>
+                  <div className="program-conclusion"><span>Program conclusion</span><strong>{data.programOutcome?.statement ?? "The broader program outcome is not established."}</strong></div>
+                </div>
+                <div className="related-card-grid">{presentation.confirmedRelated.map((trial) => <article className="related-trial-card" key={trial.nctId}><a href={trial.url} target="_blank" rel="noreferrer">{trial.nctId}</a><h3>{trial.title}</h3><p>{trial.status} · {trial.phase || "Phase not reported"}</p><small>{trial.documentedOutcome || "No documented outcome was extracted for this related record."}</small><span className="decision decision-supported">CONFIRMED MAP</span></article>)}</div>
+                {presentation.confirmedRelated.length >= 2 ? <div className="program-pattern"><strong>Program pattern</strong><p>{presentation.confirmedRelated.length} confirmed same-asset trials provide cross-trial context. Their individual outcomes must be reviewed before drawing any asset-level conclusion; this does not establish a mechanism-wide result.</p></div> : null}
+              </ExpertSection>
+            ) : null}
 
-            <section className="folder grain result-panel-shell">
-                <div className="section-title-row"><div className="mono panel-kicker">KNOWN FACTS</div><InfoTip title="Known facts">Deterministic observations copied from retrieved public records. Every item links to its source; no causal interpretation is added.</InfoTip></div>
-                <div className="fact-list">{data.knownFacts?.map((item, index) => <a href={item.url} target="_blank" rel="noreferrer" key={index}><span className="ledger-icon ledger-known" aria-hidden="true">✓</span><span>{item.fact}<small>{item.sourceName}</small></span></a>)}</div>
-            </section>
-
-            <section className="folder grain result-panel-shell">
-              <div className="section-title-row"><div className="mono panel-kicker">EXPLANATIONS CONSIDERED</div><InfoTip title="Competing explanations">Every displayed explanation has a structured assessment. Rejected requires contradictory evidence; not supported means no trial-specific support was found in completed searches, not that the event did not occur.</InfoTip></div>
+            <ExpertSection id="explanations" title="EXPLANATIONS CONSIDERED" warning={data.explanationsConsidered?.some((item) => item.contradictions.length) ? "Contradiction present" : undefined} help="Every explanation is assessed independently. Rejected requires contradictory evidence; not supported means no trial-specific support was found in completed searches.">
               <div className="section-subcopy">Competing explanations are evaluated independently instead of being blended into one narrative.</div>
               <div className="audit-card-stack">
-                {data.explanationsConsidered?.map((item, index) => (
-                  <details className="audit-card" key={item.category} open={item.decision === "DOCUMENTED" || item.decision === "SUPPORTED" || index === 1}>
+                {data.explanationsConsidered?.map((item) => (
+                  <details className="audit-card" key={item.category}>
                     <summary>
                       <span><strong>{item.category.replaceAll("_", " ")}</strong><small>{item.scope}</small></span>
                       <span className={`decision decision-${item.decision.toLowerCase()}`}>{item.decision}</span>
@@ -651,33 +739,18 @@ export default function Home() {
                   </details>
                 ))}
               </div>
-            </section>
+            </ExpertSection>
 
-            <section className="folder grain result-panel-shell">
-                <div className="section-title-row"><div className="mono panel-kicker">WHAT REMAINS UNKNOWN</div><InfoTip title="What remains unknown">“Not found” means the retrieved public sources did not establish the answer. It does not mean the event or evidence does not exist.</InfoTip></div>
-                {data.unknowns?.length ? <div className="unknown-list">{data.unknowns.map((item, index) => <div className="unknown-row" key={index}><span className="ledger-icon ledger-unknown" aria-hidden="true">?</span><div><p>{item.label}</p><small>Not established in: {item.searchedSources.join(", ")}</small></div></div>)}</div> : <p className="muted-copy">No material unknowns were identified in the displayed findings.</p>}
-            </section>
-
-            <section className="folder grain result-panel-shell">
-              <div className="section-title-row"><div className="mono panel-kicker">EVIDENCE GAPS</div><InfoTip title="Evidence gaps">These are precise evidence requirements that could change or refine the assessment. They differ from unknowns by stating what source or evidence would resolve the question.</InfoTip></div>
+            <ExpertSection id="evidence-gaps" title="WHAT WOULD CHANGE THE CONCLUSION" help="These are precise evidence requirements that could change or refine the assessment. They differ from unknowns by stating what source or evidence would resolve the question.">
               {data.evidenceGaps?.length ? <div className="gap-list">{data.evidenceGaps.map((gap) => <details className="gap-card" key={gap.id}><summary><span>{gap.question}</span><span className="mono impact-chip">{gap.impact.replaceAll("_", " ")}</span></summary><div><p>{gap.explanation}</p><strong>Evidence that would resolve it</strong><ul>{gap.expectedEvidence.map((item) => <li key={item}>{item}</li>)}</ul><small>Searched: {gap.sourceTypesSearched.join(", ") || "No completed applicable search"} · {gap.unresolvedReason.replaceAll("_", " ")}</small></div></details>)}</div> : <p className="muted-copy">No specific evidence gap met the display criteria.</p>}
-            </section>
+            </ExpertSection>
 
-            <section className="folder grain result-panel-shell">
-              <div className="section-title-row"><div className="mono panel-kicker">EVIDENCE-BASED IMPLICATIONS</div><InfoTip title="Bounded implications">Implications require supporting claim IDs, use the narrowest defensible scope, and cannot claim that another dose, population, endpoint, or protocol would have prevented the outcome.</InfoTip></div>
+            <ExpertSection id="implications" title="EVIDENCE-BASED IMPLICATION DETAILS" help="Implications require supporting claim IDs, use the narrowest defensible scope, and cannot claim that another dose, population, endpoint, or protocol would have prevented the outcome.">
               {data.evidenceBasedImplications?.length ? <div className="implication-list">{data.evidenceBasedImplications.map((item) => <article className="implication-card" key={item.id}><div className="implication-head"><span className="mono">{item.implicationType.replaceAll("_", " ")} · {item.scope}</span><span>{item.category.replaceAll("_", " ")}</span></div><h3>{item.title}</h3><p>{item.statement}</p><div className="limitation"><strong>Limitation</strong> {item.limitations.join(" ")}</div><small>Supported by {item.supportingClaimIds.join(", ")}</small></article>)}</div> : <p className="muted-copy">No evidence-based development implication can be responsibly generated from the available public record.</p>}
-            </section>
+            </ExpertSection>
 
-            <section className="folder grain result-panel-shell">
-              <div className="panel-headline evidence-heading">
-                <div>
-                  <div className="mono panel-kicker">MATERIAL TRIAL HISTORY</div>
-                  <div className="section-subcopy">Sequence is shown for context and is not treated as causal proof.</div>
-                </div>
-                <InfoTip title="Temporal record">
-                  This deterministic timeline combines registry versions, status changes, study dates, and publications. It establishes what happened and when. Timing alone is never treated as proof that one event caused another.
-                </InfoTip>
-              </div>
+            <ExpertSection id="history" title="TRIAL TIMELINE" help="This deterministic timeline combines registry versions, status changes, study dates, and publications. It establishes what happened and when. Timing alone is never treated as proof that one event caused another.">
+              <div className="section-subcopy">Sequence is shown for context and is not treated as causal proof.</div>
               <button className="history-toggle mono" onClick={() => setShowAllVersions((value) => !value)}>{showAllVersions ? "SHOW MATERIAL CHANGES" : "SHOW ALL REGISTRY VERSIONS"}</button>
               <div className="timeline-list">
                 {(showAllVersions ? data.allRegistryVersions ?? [] : data.timeline).map((item, index) => (
@@ -689,23 +762,13 @@ export default function Home() {
                   </a>
                 ))}
               </div>
-            </section>
+            </ExpertSection>
 
-            <section className="folder grain result-panel-shell">
-              <div className="section-title-row">
-                <div className="mono panel-kicker">MATRIX A · TRIAL STOPPING EVIDENCE</div>
-                <InfoTip title="Trial stopping evidence">
-                  This matrix is deterministic. It shows the registry status and any explicit Why Stopped statement without adding an inferred cause.
-                </InfoTip>
-              </div>
+            <ExpertSection id="trial-evidence" title="EVIDENCE FOR THE TRIAL OUTCOME" help="This evidence is deterministic. It shows the registry status and any explicit Why Stopped statement without adding an inferred cause.">
               <div className="compact-evidence-list">{data.trialStoppingEvidence?.map((row, index) => <a href={row.url} target="_blank" rel="noreferrer" key={index}><strong>{row.evidenceStrength}</strong><span>{row.claim}</span><small>{row.sourceName}</small></a>)}</div>
-            </section>
+            </ExpertSection>
 
-            <section className="folder grain result-panel-shell">
-              <div className="section-title-row">
-                <div className="mono panel-kicker">MATRIX B · PROGRAM FAILURE EVIDENCE</div>
-                <InfoTip title="Program failure evidence">Program-level explanations are scored separately using direct support, contradiction, missing expected evidence, source authority, trial specificity, independent provenance, and temporal relevance. The result is an evidence label, not a probability.</InfoTip>
-              </div>
+            <ExpertSection id="program-evidence" title="EVIDENCE FOR THE PROGRAM OUTCOME" help="Program-level explanations are scored separately using direct support, contradiction, missing expected evidence, source authority, trial specificity, independent provenance, and temporal relevance. The result is an evidence label, not a probability.">
               <div className="section-subcopy">Repeated coverage of one underlying announcement counts once. Unsupported candidates remain insufficient or are rejected.</div>
               {data.programEvidenceMatrix?.length ? (
                 <div className="matrix-scroll">
@@ -723,7 +786,7 @@ export default function Home() {
                   </table>
                 </div>
               ) : <p className="muted-copy">No trial-specific causal hypothesis met the evidence threshold.</p>}
-            </section>
+            </ExpertSection>
 
             <section className="folder grain result-panel-shell legacy-hypotheses" aria-hidden="true">
               <div className="section-title-row">
@@ -797,8 +860,7 @@ export default function Home() {
               )}
             </section>
 
-            <section className="folder grain result-panel-shell">
-              <div className="section-title-row"><div className="mono panel-kicker">SOURCES CHECKED</div><InfoTip title="Source coverage and provenance">A source is marked searched only when its retrieval operation completed. Raw documents that repeat the same upstream announcement share one canonical provenance group and count once for corroboration.</InfoTip></div>
+            <ExpertSection id="sources" title="WHERE THE EVIDENCE CAME FROM" help="A source is marked searched only when its retrieval operation completed. Raw documents that repeat the same upstream announcement share one canonical provenance group and count once for corroboration.">
               <div className="coverage-summary"><strong>{data.provenanceSummary?.independentSourceGroupsUsed ?? 0}</strong><span>independent source groups used</span><strong>{data.provenanceSummary?.rawDocumentsUsed ?? 0}</strong><span>raw documents used</span></div>
               <div className="matrix-scroll">
                 <table className="evidence-matrix coverage-table">
@@ -809,41 +871,7 @@ export default function Home() {
                   })}</tbody>
                 </table>
               </div>
-            </section>
-
-            <div className="result-grid">
-              <section className="folder grain result-panel-shell">
-                <div className="section-title-row">
-                  <button className="row-btn" onClick={() => setShowOverview((s) => !s)}>
-                    {showOverview ? "▾" : "▸"} [TRIAL RECORD]
-                  </button>
-                  <InfoTip title="Trial record">
-                    These fields come from the current ClinicalTrials.gov record. Dates retain their reported ACTUAL or ESTIMATED qualifier; UNKNOWN means the registry did not provide one.
-                  </InfoTip>
-                </div>
-                {showOverview ? (
-                  <div className="detail-grid">
-                    <div><span>Condition</span><strong>{data.overview.condition.join(", ") || "Not reported"}</strong></div>
-                    <div><span>Intervention</span><strong>{data.overview.intervention.join(", ") || "Not reported"}</strong></div>
-                    <div><span>Sponsor</span><strong>{data.overview.sponsor}</strong></div>
-                    <div><span>Status</span><strong>{data.overview.status}</strong></div>
-                    <div><span>Start date</span><strong>{formatDate(data.overview.startDate)} {data.overview.startDateType ? `(${data.overview.startDateType})` : ""}</strong></div>
-                    <div><span>Completion date</span><strong>{formatDate(data.overview.completionDate)} {data.overview.completionDateType ? `(${data.overview.completionDateType})` : ""}</strong></div>
-                  </div>
-                ) : null}
-              </section>
-
-              <section className="folder grain result-panel-shell">
-                <div className="section-title-row">
-                  <button className="row-btn" onClick={() => setShowSources((s) => !s)}>
-                    {showSources ? "▾" : "▸"} [SOURCES] ({sourceCount(data)})
-                  </button>
-                  <InfoTip title="Sources">
-                    Sources are linked for verification and prioritized by authority: registry and documented sponsor or regulator records before publications and contextual trials. Articles repeating the same underlying announcement count as one source family, not independent corroboration.
-                  </InfoTip>
-                </div>
-                {showSources ? (
-                  <div className="source-columns">
+              <div className="source-columns evidence-source-columns">
                     <div>
                       <div className="mono source-heading">RELATED TRIALS</div>
                       {data.relatedTrials.length > 0 ? data.relatedTrials.map((trial) => (
@@ -868,26 +896,28 @@ export default function Home() {
                         </div>
                       )) : <div className="muted-copy">No PubMed record surfaced for this trial yet.</div>}
                     </div>
-                  </div>
-                ) : null}
-              </section>
-            </div>
-
-            <section className="folder grain result-panel-shell">
-              <div className="section-title-row">
-                <button className="row-btn" onClick={() => setShowMethod((s) => !s)}>
-                  [INFO] HOW THIS WAS GENERATED
-                </button>
-                <InfoTip title="Three-step investigation">
-                  The temporal agent reconstructs the record, the evidence agent maps and retrieves trial and program sources, and the evidence judge scores support, contradictions, specificity, authority, corroboration, and temporal relevance before allowing a conclusion.
-                </InfoTip>
               </div>
-              {showMethod ? (
-                <div className="method-copy">
-                  First, the temporal agent compares ClinicalTrials.gov record versions and creates a deterministic event sequence. Next, the evidence agent maps the trial to its asset and program and checks registry, PubMed, SEC, FDA, and relevant EU identifiers. Finally, the judge deduplicates repeated announcements, runs category-specific expected-evidence tests, and suppresses any hypothesis without trial-specific support.
+            </ExpertSection>
+
+            <ExpertSection id="audit-trail" title="AUDIT TRAIL" help="These details are useful when a user wants to inspect the underlying registry row and the generation method, but they are not the first thing the page should ask them to read.">
+              <div className="audit-trail-grid">
+                <div className="audit-mini-card">
+                  <div className="mono audit-mini-label">CURRENT REGISTRY RECORD</div>
+                  <div className="detail-grid">
+                    <div><span>Condition</span><strong>{data.overview.condition.join(", ") || "Not reported"}</strong></div>
+                    <div><span>Intervention</span><strong>{data.overview.intervention.join(", ") || "Not reported"}</strong></div>
+                    <div><span>Sponsor</span><strong>{data.overview.sponsor}</strong></div>
+                    <div><span>Status</span><strong>{data.overview.status}</strong></div>
+                    <div><span>Start date</span><strong>{formatDate(data.overview.startDate)} {data.overview.startDateType ? `(${data.overview.startDateType})` : ""}</strong></div>
+                    <div><span>Completion date</span><strong>{formatDate(data.overview.completionDate)} {data.overview.completionDateType ? `(${data.overview.completionDateType})` : ""}</strong></div>
+                  </div>
                 </div>
-              ) : null}
-            </section>
+                <div className="audit-mini-card">
+                  <div className="mono audit-mini-label">HOW THIS WAS GENERATED</div>
+                  <div className="method-copy">The temporal agent compares ClinicalTrials.gov record versions and creates a deterministic event sequence. The evidence agent maps the trial to its asset and program and checks registry, PubMed, SEC, FDA, and relevant EU identifiers. The evidence judge deduplicates repeated announcements, runs category-specific expected-evidence tests, and suppresses any hypothesis without trial-specific support.</div>
+                </div>
+              </div>
+            </ExpertSection>
           </div>
         ) : null}
 
