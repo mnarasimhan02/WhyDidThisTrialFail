@@ -407,10 +407,11 @@ export default function Home() {
     const primaryFinding = conciseFinding(data.trialStoppingReason?.documented && stoppingReason
       ? stoppingReason
       : data.trialOutcome?.statement ?? data.publicEvidenceSummary ?? data.bottomLine);
+    const category = primaryCategory(explanations, Boolean(data.trialStoppingReason?.documented));
     return {
-      trialResult: displayOutcome(data.overview.status, data.trialOutcome?.classification),
+      trialResult: displayOutcome(data.overview.status, `${data.trialOutcome?.classification ?? ""} ${category}`),
       primaryFinding,
-      category: primaryCategory(explanations, Boolean(data.trialStoppingReason?.documented)),
+      category,
       evidence: evidenceStatus(Boolean(data.trialStoppingReason?.documented), explanations),
       program: programOutcomeLabel(data.programOutcome?.classification),
       scores, confirmedRelated,
