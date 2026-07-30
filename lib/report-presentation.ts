@@ -13,6 +13,20 @@ export function conciseFinding(value: string) {
   return `${shortened}…`;
 }
 
+export function documentedCategory(value: string) {
+  const text = value.toLowerCase();
+  if (/adverse event|toxicity|liver enzyme|hepatotoxic|death|safety concern/.test(text)) return "SAFETY";
+  if (/no longer available|longer available|product unavailable|intervention unavailable|supply unavailable/.test(text)) return "PRODUCT_AVAILABILITY";
+  if (/futility|futile|unlikely to meet|unlikely to achieve/.test(text)) return "FUTILITY";
+  if (/did not meet|failed to meet/.test(text) && /primary endpoint|primary outcome/.test(text)) return "PRIMARY_ENDPOINT_NOT_MET";
+  if (/benefit-risk|benefit risk/.test(text)) return "BENEFIT_RISK";
+  if (/unable to recruit|poor recruitment|slow enrollment|low accrual/.test(text)) return "ENROLLMENT";
+  if (/manufacturing|cmc|batch|stability|impurity/.test(text)) return "CMC_MANUFACTURING";
+  if (/operational|site closure|logistics|data quality/.test(text)) return "OPERATIONAL";
+  if (/business|portfolio|strategic|commercial/.test(text)) return "BUSINESS_DECISION";
+  return "DOCUMENTED_STOPPING_REASON";
+}
+
 export function displayOutcome(status: string, classification = "") {
   const value = `${status} ${classification}`.toUpperCase();
   if (/RECRUITING|ACTIVE_NOT_RECRUITING|NOT_YET_RECRUITING|ENROLLING/.test(value) && !/NEGATIVE|FAILED|NOT MET/.test(value)) return "ONGOING";
