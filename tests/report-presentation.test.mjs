@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { conciseFinding, displayOutcome, evidenceStatus, primaryCategory, scorecard, validatePresentation } from "../lib/report-presentation.ts";
+import { conciseFinding, displayOutcome, documentedCategory, evidenceStatus, primaryCategory, scorecard, validatePresentation } from "../lib/report-presentation.ts";
 
 const documented = [{ category: "FUTILITY", decision: "DOCUMENTED", scope: "TRIAL", supportingClaimIds: ["registry-stop"], contradictingClaimIds: [] }];
 
@@ -13,6 +13,12 @@ test("presents a documented futility stop in the first-screen fields", () => {
 test("shortens registry wording without losing the documented category", () => {
   assert.match(conciseFinding("This study was discontinued due to an interim analysis in this study, which indicated that Crenezumab was unlikely to meet its primary endpoint."), /interim analysis.*unlikely to meet its primary endpoint/i);
   assert.match(conciseFinding("MnSOD longer available during Phase II"), /intervention was no longer available/i);
+});
+
+test("routes the executive category from the documented stopping reason", () => {
+  assert.equal(documentedCategory("Interim analysis indicated the trial was unlikely to meet its primary endpoint."), "FUTILITY");
+  assert.equal(documentedCategory("Liver enzyme elevations changed the benefit-risk profile."), "SAFETY");
+  assert.equal(documentedCategory("MnSOD was no longer available during Phase II."), "PRODUCT_AVAILABILITY");
 });
 
 test("does not present an ongoing trial as a failure", () => {
