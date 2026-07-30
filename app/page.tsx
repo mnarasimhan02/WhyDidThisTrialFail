@@ -515,53 +515,56 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="status-band">
-          <div className="status-card">
-            <div className="mono status-label">Investigation status</div>
-            <div className={`status-text ${status === "error" ? "status-error" : ""}`}>
-              {status === "idle" && "Ready"}
-              {status === "loading" && "Checking sources..."}
-              {status === "error" && error}
-              {status === "done" && `Complete for ${data?.nctId ?? nctId ?? "this trial"}.`}
-            </div>
-          </div>
-          <div className="status-card">
-            <div className="mono status-label">Guardrail</div>
-            <div className="status-text subtle">
-              The app labels facts, inferences, and hypotheses separately so it does
-              not overstate causality.
-            </div>
-          </div>
-        </section>
+        {status !== "done" ? (
+          <>
+            <section className="status-band">
+              <div className="status-card">
+                <div className="mono status-label">Investigation status</div>
+                <div className={`status-text ${status === "error" ? "status-error" : ""}`}>
+                  {status === "idle" && "Ready"}
+                  {status === "loading" && "Checking sources..."}
+                  {status === "error" && error}
+                </div>
+              </div>
+              <div className="status-card">
+                <div className="mono status-label">Guardrail</div>
+                <div className="status-text subtle">
+                  The app labels facts, inferences, and hypotheses separately so it does
+                  not overstate causality.
+                </div>
+              </div>
+            </section>
 
-        <section className="what-youll-get">
-          <div className="mono section-label">WHAT YOU&apos;LL GET</div>
-          <div className="feature-grid">
-            {[
-              {
-                title: "Bottom line",
-                body: "A tight, one-paragraph read on the most likely reason the trial stopped or missed its endpoint.",
-              },
-              {
-                title: "Hypotheses",
-                body: "Every plausible explanation, ranked by evidence strength, each with the evidence for it and the strongest case against it.",
-              },
-              {
-                title: "Evidence",
-                body: "Direct links back to ClinicalTrials.gov records, PubMed abstracts, and other public registry context.",
-              },
-              {
-                title: "Guardrails",
-                body: "Fact, inference, and hypothesis are labeled separately, so you always know how much weight to put on a line.",
-              },
-            ].map((item) => (
-              <article className="feature-card" key={item.title}>
-                <div className="stampfont feature-title">{item.title}</div>
-                <p>{item.body}</p>
-              </article>
-            ))}
-          </div>
-        </section>
+            <section className="what-youll-get">
+              <div className="mono section-label">WHAT YOU&apos;LL GET</div>
+              <div className="feature-grid">
+                {[
+                  {
+                    title: "Bottom line",
+                    body: "A tight, one-paragraph read on the most likely reason the trial stopped or missed its endpoint.",
+                  },
+                  {
+                    title: "Hypotheses",
+                    body: "Every plausible explanation, ranked by evidence strength, each with the evidence for it and the strongest case against it.",
+                  },
+                  {
+                    title: "Evidence",
+                    body: "Direct links back to ClinicalTrials.gov records, PubMed abstracts, and other public registry context.",
+                  },
+                  {
+                    title: "Guardrails",
+                    body: "Fact, inference, and hypothesis are labeled separately, so you always know how much weight to put on a line.",
+                  },
+                ].map((item) => (
+                  <article className="feature-card" key={item.title}>
+                    <div className="stampfont feature-title">{item.title}</div>
+                    <p>{item.body}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          </>
+        ) : null}
 
         {status === "done" && data ? (
           <div ref={resultRef} className="result-stack">
