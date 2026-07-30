@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { conciseFinding, displayOutcome, evidenceStatus, primaryCategory, scorecard } from "../lib/report-presentation";
+import { conciseFinding, displayOutcome, documentedCategory, evidenceStatus, primaryCategory, scorecard } from "../lib/report-presentation";
 
 type InvestigationResponse = {
   nctId: string;
@@ -407,7 +407,9 @@ export default function Home() {
     const primaryFinding = conciseFinding(data.trialStoppingReason?.documented && stoppingReason
       ? stoppingReason
       : data.trialOutcome?.statement ?? data.publicEvidenceSummary ?? data.bottomLine);
-    const category = primaryCategory(explanations, Boolean(data.trialStoppingReason?.documented));
+    const category = data.trialStoppingReason?.documented && stoppingReason
+      ? documentedCategory(stoppingReason)
+      : primaryCategory(explanations, false);
     return {
       trialResult: displayOutcome(data.overview.status, `${data.trialOutcome?.classification ?? ""} ${category}`),
       primaryFinding,
